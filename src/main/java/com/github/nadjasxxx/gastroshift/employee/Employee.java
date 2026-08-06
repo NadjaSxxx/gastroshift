@@ -2,12 +2,32 @@ package com.github.nadjasxxx.gastroshift.employee;
 
 import java.util.UUID;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "employees")
 public class Employee {
-    private final UUID id;
-    private final String firstName;
-    private final String lastName;
-    private final String email;
-    private final boolean active;
+
+    @Id
+    private UUID id;
+
+    @Column(name = "first_name", nullable = false, length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false, length = 100)
+    private String lastName;
+
+    @Column(nullable = false, unique = true, length = 255)
+    private String email;
+
+    @Column(nullable = false)
+    private boolean active;
+
+    protected Employee() {
+    }
 
     public Employee(UUID id, String firstName, String lastName, String email, boolean active) {
         this.id = id;
