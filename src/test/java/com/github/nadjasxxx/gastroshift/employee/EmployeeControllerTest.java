@@ -12,16 +12,48 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import org.springframework.test.annotation.DirtiesContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
+import com.github.nadjasxxx.gastroshift.TestcontainersConfiguration;
+import org.springframework.context.annotation.Import;
+
+import org.junit.jupiter.api.BeforeEach;
+
+import java.util.List;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@Import(TestcontainersConfiguration.class)
 class EmployeeControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @BeforeEach
+    void setUp() {
+        employeeRepository.deleteAll();
+
+        employeeRepository.saveAll(List.of(
+                new Employee(
+                        UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        "Anna",
+                        "Nass",
+                        "anna.nass@example.com",
+                        true
+                ),
+                new Employee(
+                        UUID.fromString("22222222-2222-2222-2222-222222222222"),
+                        "Rainer",
+                        "Zufall",
+                        "rainer.zufall@example.com",
+                        true
+                )
+        ));
+    }
 
     @Test
     void shouldReturnAllEmployees() throws Exception {
