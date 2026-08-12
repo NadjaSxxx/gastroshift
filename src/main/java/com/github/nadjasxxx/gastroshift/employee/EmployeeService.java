@@ -18,6 +18,11 @@ public class EmployeeService {
     }
 
     public Employee create(CreateEmployeeRequest request) {
+
+        if (employeeRepository.existsByEmailIgnoreCase(request.email())) {
+            throw new DuplicateEmployeeEmailException(request.email());
+        }
+
         Employee employee = new Employee(
                 UUID.randomUUID(),
                 request.firstName(),
@@ -25,6 +30,6 @@ public class EmployeeService {
                 request.email(),
                 true
         );
-        return employeeRepository.save(employee);
+        return employeeRepository.saveAndFlush(employee);
     }
 }

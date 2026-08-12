@@ -101,4 +101,27 @@ class EmployeeControllerTest {
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void shouldRejectDuplicateEmailIgnoringCase() throws Exception {
+        String requestBody = """
+            {
+              "firstName": "Andere",
+              "lastName": "Person",
+              "email": "ANNA.NASS@EXAMPLE.COM"
+            }
+            """;
+
+        mockMvc.perform(post("/api/employees")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message")
+                        .value("An employee with email 'ANNA.NASS@EXAMPLE.COM' already exists"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
 }
