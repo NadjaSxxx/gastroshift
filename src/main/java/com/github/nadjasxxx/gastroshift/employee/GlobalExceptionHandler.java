@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.DataIntegrityViolationException;
+import com.github.nadjasxxx.gastroshift.shift.InvalidShiftTimeRangeException;
 
 import java.time.Instant;
 
@@ -34,6 +35,19 @@ public class GlobalExceptionHandler {
                 HttpStatus.CONFLICT.value(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
                 "The request conflicts with existing data",
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(InvalidShiftTimeRangeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleInvalidShiftTimeRange(
+            InvalidShiftTimeRangeException exception
+    ) {
+        return new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
                 Instant.now()
         );
     }
