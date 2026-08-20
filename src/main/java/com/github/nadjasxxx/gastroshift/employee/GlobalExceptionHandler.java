@@ -9,6 +9,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.github.nadjasxxx.gastroshift.shift.InvalidShiftTimeRangeException;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
 import com.github.nadjasxxx.gastroshift.shift.ShiftNotFoundException;
+import com.github.nadjasxxx.gastroshift.shift.OverlappingShiftException;
 
 import java.time.Instant;
 
@@ -63,6 +64,19 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.NOT_FOUND.value(),
                 HttpStatus.NOT_FOUND.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(OverlappingShiftException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handleOverlappingShift(
+            OverlappingShiftException exception
+    ) {
+        return new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );
