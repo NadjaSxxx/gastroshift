@@ -48,6 +48,17 @@ public class ShiftService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EmployeeNotFoundException(employeeId));
 
+        boolean hasOverlap = shiftRepository.existsOverlappingShift(
+                employeeId,
+                shiftId,
+                shift.getStartTime(),
+                shift.getEndTime()
+        );
+
+        if (hasOverlap) {
+            throw new OverlappingShiftException(employeeId);
+        }
+
         shift.assignEmployee(employee);
 
         return shiftRepository.saveAndFlush(shift);
