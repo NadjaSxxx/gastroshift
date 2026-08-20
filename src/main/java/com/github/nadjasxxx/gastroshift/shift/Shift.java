@@ -8,6 +8,10 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.github.nadjasxxx.gastroshift.employee.Employee;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+
 @Entity
 @Table(name = "shifts")
 public class Shift {
@@ -27,6 +31,11 @@ public class Shift {
 
     @Column(length = 500)
     private String notes;
+
+    @ManyToOne
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
+
 
     protected Shift() {
     }
@@ -57,5 +66,11 @@ public class Shift {
 
     public String getNotes() {
         return notes;
+    }
+
+    public Employee getEmployee() { return employee; }
+
+    public void assignEmployee(Employee employee) {
+        this.employee = employee;
     }
 }
