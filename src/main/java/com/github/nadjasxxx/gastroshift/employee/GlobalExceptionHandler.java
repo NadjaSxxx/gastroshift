@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.github.nadjasxxx.gastroshift.shift.InvalidShiftTimeRangeException;
+import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
+import com.github.nadjasxxx.gastroshift.shift.ShiftNotFoundException;
 
 import java.time.Instant;
 
@@ -47,6 +49,20 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler({
+            EmployeeNotFoundException.class,
+            ShiftNotFoundException.class
+    })
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiError handleNotFound(RuntimeException exception) {
+        return new ApiError(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );

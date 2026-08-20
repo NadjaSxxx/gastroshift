@@ -1,6 +1,9 @@
 package com.github.nadjasxxx.gastroshift.shift;
 
 import org.springframework.stereotype.Service;
+import com.github.nadjasxxx.gastroshift.employee.Employee;
+import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
+import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -10,8 +13,14 @@ public class ShiftService {
 
     private final ShiftRepository shiftRepository;
 
-    public ShiftService(ShiftRepository shiftRepository) {
+    private final EmployeeRepository employeeRepository;
+
+    public ShiftService(
+            ShiftRepository shiftRepository,
+            EmployeeRepository employeeRepository
+    ) {
         this.shiftRepository = shiftRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     public List<Shift> findAll() {
@@ -29,6 +38,18 @@ public class ShiftService {
                 request.position(),
                 request.notes()
         );
+        return shiftRepository.saveAndFlush(shift);
+    }
+
+    public Shift assignEmployee(UUID shiftId, UUID employeeId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new ShiftNotFoundException(shiftId));
+
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new EmployeeNotFoundException(employeeId));
+
+        shift.assignEmployee(employee);
+
         return shiftRepository.saveAndFlush(shift);
     }
 }

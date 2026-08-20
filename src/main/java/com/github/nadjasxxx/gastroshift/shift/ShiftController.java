@@ -9,7 +9,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 
+import java.util.UUID;
 import java.util.List;
 
 @RestController
@@ -31,5 +34,13 @@ public class ShiftController {
     @ResponseStatus(HttpStatus.CREATED)
     public Shift create(@Valid @RequestBody CreateShiftRequest request) {
         return shiftService.create(request);
+    }
+
+    @PutMapping("/{shiftId}/employee/{employeeId}")
+    public Shift assignEmployee(
+            @PathVariable UUID shiftId,
+            @PathVariable UUID employeeId
+    ) {
+        return shiftService.assignEmployee(shiftId, employeeId);
     }
 }
