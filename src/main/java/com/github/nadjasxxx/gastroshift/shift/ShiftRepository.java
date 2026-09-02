@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 public interface ShiftRepository extends JpaRepository<Shift, UUID> {
 
@@ -18,10 +19,22 @@ public interface ShiftRepository extends JpaRepository<Shift, UUID> {
           AND shift.startTime < :endTime
           AND shift.endTime > :startTime
         """)
-    boolean existsOverlappingShift(
+        boolean existsOverlappingShift(
             @Param("employeeId") UUID employeeId,
             @Param("shiftId") UUID shiftId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
+    );
+
+    @Query("""
+        SELECT shift
+        FROM Shift shift
+        WHERE shift.startTime < :to
+          AND shift.endTime > :from
+        ORDER BY shift.startTime
+        """)
+    List<Shift> findOverlappingRange(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
     );
 }

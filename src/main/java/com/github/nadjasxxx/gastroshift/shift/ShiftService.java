@@ -5,6 +5,7 @@ import com.github.nadjasxxx.gastroshift.employee.Employee;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +40,25 @@ public class ShiftService {
                 request.notes()
         );
         return shiftRepository.saveAndFlush(shift);
+    }
+
+    public List<Shift> findAll(
+            LocalDateTime from,
+            LocalDateTime to
+    ) {
+        if (from == null || to == null) {
+            throw new InvalidShiftFilterRangeException(
+                    "Both from and to must be provided"
+            );
+        }
+
+        if (!to.isAfter(from)) {
+            throw new InvalidShiftFilterRangeException(
+                    "To must be after from"
+            );
+        }
+
+        return shiftRepository.findOverlappingRange(from, to);
     }
 
     public Shift assignEmployee(UUID shiftId, UUID employeeId) {

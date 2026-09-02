@@ -12,7 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
 
@@ -27,8 +30,20 @@ public class ShiftController {
     }
 
     @GetMapping
-    public List<Shift> findAll() {
-        return shiftService.findAll();
+    public List<Shift> findAll(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime from,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime to
+    ) {
+        if (from == null && to == null) {
+            return shiftService.findAll();
+        }
+
+        return shiftService.findAll(from, to);
     }
 
     @PostMapping
