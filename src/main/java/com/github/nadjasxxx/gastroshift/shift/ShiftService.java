@@ -63,4 +63,13 @@ public class ShiftService {
 
         return shiftRepository.saveAndFlush(shift);
     }
+
+    public void unassignEmployee(UUID shiftId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new ShiftNotFoundException(shiftId));
+
+        shift.unassignEmployee();
+
+        shiftRepository.saveAndFlush(shift);
+    }
 }

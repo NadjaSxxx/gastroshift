@@ -26,6 +26,9 @@ import java.util.UUID;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -359,4 +362,86 @@ class ShiftControllerTest {
                 .andExpect(jsonPath("$.employee.id")
                         .value(employeeId.toString()));
     }
+
+    @Test
+    void shouldUnassignEmployeeFromShift() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        Employee employee = employeeRepository.save(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        Shift shift = new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-08-20T10:00:00"),
+                LocalDateTime.parse("2026-08-20T16:00:00"),
+                "Kitchen",
+                null
+        );
+        shift.assignEmployee(employee);
+        shiftRepository.saveAndFlush(shift);
+
+        mockMvc.perform(delete(
+                        "/api/shifts/{shiftId}/employee",
+                        shiftId
+                ))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        Shift persistedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertNull(persistedShift.getEmployee());
+    }
+
+    @Test
+    void shouldAllowUnassigningAlreadyUnassignedShift() throws Exception {
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-08-20T10:00:00"),
+                LocalDateTime.parse("2026-08-20T16:00:00"),
+                "Kitchen",
+                null
+        ));
+
+        mockMvc.perform(delete(
+                        "/api/shifts/{shiftId}/employee",
+                        shiftId
+                ))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        Shift persistedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertNull(persistedShift.getEmployee());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUnassigningUnknownShift()
+            throws Exception {
+        UUID unknownShiftId =
+                UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        mockMvc.perform(delete(
+                        "/api/shifts/{shiftId}/employee",
+                        unknownShiftId
+                ))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Shift not found: " + unknownShiftId));
+    }
+
 }
