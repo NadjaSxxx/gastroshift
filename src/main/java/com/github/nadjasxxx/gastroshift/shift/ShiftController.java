@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.util.UUID;
 import java.util.List;
@@ -42,5 +43,11 @@ public class ShiftController {
             @PathVariable UUID employeeId
     ) {
         return shiftService.assignEmployee(shiftId, employeeId);
+    }
+
+    @DeleteMapping("/{shiftId}/employee")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unassignEmployee(@PathVariable UUID shiftId) {
+        shiftService.unassignEmployee(shiftId);
     }
 }

@@ -73,4 +73,8 @@ public class Shift {
     public void assignEmployee(Employee employee) {
         this.employee = employee;
     }
+
+    public void unassignEmployee() {
+        this.employee = null;
+    }
 }
