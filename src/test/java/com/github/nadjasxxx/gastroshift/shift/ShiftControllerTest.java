@@ -21,6 +21,7 @@ import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
 import org.junit.jupiter.api.AfterEach;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -444,4 +445,90 @@ class ShiftControllerTest {
                         .value("Shift not found: " + unknownShiftId));
     }
 
+    @Test
+    void shouldReturnShiftsOverlappingRequestedRange() throws Exception {
+        shiftRepository.saveAll(List.of(
+                new Shift(
+                        UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        LocalDateTime.parse("2026-09-07T08:00:00"),
+                        LocalDateTime.parse("2026-09-07T10:00:00"),
+                        "Ends at boundary",
+                        null
+                ),
+                new Shift(
+                        UUID.fromString("22222222-2222-2222-2222-222222222222"),
+                        LocalDateTime.parse("2026-09-07T09:00:00"),
+                        LocalDateTime.parse("2026-09-07T11:00:00"),
+                        "Overlaps start",
+                        null
+                ),
+                new Shift(
+                        UUID.fromString("33333333-3333-3333-3333-333333333333"),
+                        LocalDateTime.parse("2026-09-07T12:00:00"),
+                        LocalDateTime.parse("2026-09-07T16:00:00"),
+                        "Inside range",
+                        null
+                ),
+                new Shift(
+                        UUID.fromString("44444444-4444-4444-4444-444444444444"),
+                        LocalDateTime.parse("2026-09-07T17:00:00"),
+                        LocalDateTime.parse("2026-09-07T19:00:00"),
+                        "Overlaps end",
+                        null
+                ),
+                new Shift(
+                        UUID.fromString("55555555-5555-5555-5555-555555555555"),
+                        LocalDateTime.parse("2026-09-07T18:00:00"),
+                        LocalDateTime.parse("2026-09-07T20:00:00"),
+                        "Starts at boundary",
+                        null
+                )
+        ));
+        shiftRepository.flush();
+
+        mockMvc.perform(get("/api/shifts")
+                        .param("from", "2026-09-07T10:00:00")
+                        .param("to", "2026-09-07T18:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].position")
+                        .value("Overlaps start"))
+                .andExpect(jsonPath("$[1].position")
+                        .value("Inside range"))
+                .andExpect(jsonPath("$[2].position")
+                        .value("Overlaps end"));
+    }
+
+    @Test
+    void shouldRejectShiftFilterWhenToIsMissing() throws Exception {
+        mockMvc.perform(get("/api/shifts")
+                        .param("from", "2026-09-07T10:00:00"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("Both from and to must be provided"));
+    }
+
+    @Test
+    void shouldRejectShiftFilterWhenToIsNotAfterFrom()
+            throws Exception {
+        mockMvc.perform(get("/api/shifts")
+                        .param("from", "2026-09-07T18:00:00")
+                        .param("to", "2026-09-07T10:00:00"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("To must be after from"));
+    }
+
+    @Test
+    void shouldRejectShiftFilterWithInvalidDateFormat()
+            throws Exception {
+        mockMvc.perform(get("/api/shifts")
+                        .param("from", "not-a-date")
+                        .param("to", "2026-09-07T18:00:00"))
+                .andExpect(status().isBadRequest());
+    }
 }
