@@ -176,12 +176,13 @@ The test database is separate from the local development database.
 ### Shifts
 
 | Method   | Endpoint                                      | Description                          |
-| -------- | --------------------------------------------- | ------------------------------------ |
+|----------|-----------------------------------------------|--------------------------------------|
 | `GET`    | `/api/shifts`                                 | List all shifts                      |
 | `GET`    | `/api/shifts?from={from}&to={to}`             | List shifts overlapping a time range |
 | `POST`   | `/api/shifts`                                 | Create a shift                       |
 | `PUT`    | `/api/shifts/{shiftId}/employee/{employeeId}` | Assign an employee to a shift        |
 | `DELETE` | `/api/shifts/{shiftId}/employee`              | Remove the employee assignment       |
+| `PUT`    | `/api/shifts/{shiftId}`                       | Update an existing shift             |
 
 ## Request Examples
 
@@ -269,6 +270,22 @@ DELETE /api/shifts/{shiftId}/employee
 
 A successful request returns `204 No Content`. Repeating the request for an already unassigned shift also succeeds.
 
+### Update a Shift
+
+```http
+PUT /api/shifts/{shiftId}
+Content-Type: application/json
+```
+
+```json
+{
+  "startTime": "2026-09-15T12:00:00",
+  "endTime": "2026-09-15T18:00:00",
+  "position": "Kitchen",
+  "notes": "Updated shift"
+}
+```
+
 ## HTTP Status Codes
 
 | Status            | Meaning                                                         |
@@ -340,7 +357,7 @@ GastroShift currently provides a tested backend API. It does not yet include a f
 
 Planned improvements include:
 
-* editing and deleting shifts,
+* deleting shifts,
 * employee availability,
 * response DTOs,
 * authentication and authorization,

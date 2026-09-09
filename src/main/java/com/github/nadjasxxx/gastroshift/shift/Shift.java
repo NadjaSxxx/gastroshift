@@ -77,4 +77,16 @@ public class Shift {
     public void unassignEmployee() {
         this.employee = null;
     }
+
+    public void updateDetails(
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            String position,
+            String notes
+    ) {
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.position = position;
+        this.notes = notes;
+    }
 }

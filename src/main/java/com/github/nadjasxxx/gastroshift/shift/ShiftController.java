@@ -65,4 +65,12 @@ public class ShiftController {
     public void unassignEmployee(@PathVariable UUID shiftId) {
         shiftService.unassignEmployee(shiftId);
     }
+
+    @PutMapping("/{shiftId}")
+    public Shift update(
+            @PathVariable UUID shiftId,
+            @Valid @RequestBody UpdateShiftRequest request
+    ) {
+        return shiftService.update(shiftId, request);
+    }
 }

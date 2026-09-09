@@ -97,4 +97,42 @@ public class ShiftService {
 
         shiftRepository.saveAndFlush(shift);
     }
+
+    public Shift update(
+            UUID shiftId,
+            UpdateShiftRequest request
+    ) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new ShiftNotFoundException(shiftId));
+
+        if (!request.endTime().isAfter(request.startTime())) {
+            throw new InvalidShiftTimeRangeException();
+        }
+
+        Employee assignedEmployee = shift.getEmployee();
+
+        if (assignedEmployee != null) {
+            boolean hasOverlap = shiftRepository.existsOverlappingShift(
+                    assignedEmployee.getId(),
+                    shiftId,
+                    request.startTime(),
+                    request.endTime()
+            );
+
+            if (hasOverlap) {
+                throw new OverlappingShiftException(
+                        assignedEmployee.getId()
+                );
+            }
+        }
+
+        shift.updateDetails(
+                request.startTime(),
+                request.endTime(),
+                request.position(),
+                request.notes()
+        );
+
+        return shiftRepository.saveAndFlush(shift);
+    }
 }
