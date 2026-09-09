@@ -9,16 +9,15 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.github.nadjasxxx.gastroshift.employee.Employee;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
 import org.junit.jupiter.api.AfterEach;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -530,5 +529,94 @@ class ShiftControllerTest {
                         .param("from", "not-a-date")
                         .param("to", "2026-09-07T18:00:00"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRejectAssignmentOfInactiveEmployee() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                false
+        ));
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-10T10:00:00"),
+                LocalDateTime.parse("2026-09-10T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}/employee/{employeeId}",
+                        shiftId,
+                        employeeId
+                ))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").value(
+                        "Employee is inactive: " + employeeId
+                ));
+
+        Shift unchangedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertNull(unchangedShift.getEmployee());
+    }
+
+    @Test
+    void shouldAllowAssignmentAfterEmployeeReactivation()
+            throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                false
+        ));
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-10T10:00:00"),
+                LocalDateTime.parse("2026-09-10T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/employees/{employeeId}/status",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "active": true
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}/employee/{employeeId}",
+                        shiftId,
+                        employeeId
+                ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.employee.id")
+                        .value(employeeId.toString()))
+                .andExpect(jsonPath("$.employee.active").value(true));
     }
 }

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import com.github.nadjasxxx.gastroshift.employee.Employee;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
+import com.github.nadjasxxx.gastroshift.employee.InactiveEmployeeException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,6 +68,10 @@ public class ShiftService {
 
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EmployeeNotFoundException(employeeId));
+
+        if (!employee.isActive()) {
+            throw new InactiveEmployeeException(employeeId);
+        }
 
         boolean hasOverlap = shiftRepository.existsOverlappingShift(
                 employeeId,

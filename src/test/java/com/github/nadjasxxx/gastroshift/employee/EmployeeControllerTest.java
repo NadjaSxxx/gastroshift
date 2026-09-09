@@ -6,17 +6,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import com.github.nadjasxxx.gastroshift.TestcontainersConfiguration;
 import org.springframework.context.annotation.Import;
-
 import org.junit.jupiter.api.BeforeEach;
 
 import java.util.List;
@@ -122,6 +121,117 @@ class EmployeeControllerTest {
                 .andExpect(jsonPath("$.message")
                         .value("An employee with email 'ANNA.NASS@EXAMPLE.COM' already exists"))
                 .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
+    void shouldDeactivateEmployee() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/employees/{employeeId}/status",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "active": false
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(employeeId.toString()))
+                .andExpect(jsonPath("$.active").value(false));
+
+        Employee persistedEmployee = employeeRepository.findById(employeeId)
+                .orElseThrow();
+
+        assertFalse(persistedEmployee.isActive());
+    }
+
+    @Test
+    void shouldReactivateEmployee() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                false
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/employees/{employeeId}/status",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "active": true
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true));
+
+        Employee persistedEmployee = employeeRepository.findById(employeeId)
+                .orElseThrow();
+
+        assertTrue(persistedEmployee.isActive());
+    }
+
+    @Test
+    void shouldRejectEmployeeStatusWhenActiveIsMissing()
+            throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/employees/{employeeId}/status",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingUnknownEmployee()
+            throws Exception {
+        UUID unknownEmployeeId =
+                UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        mockMvc.perform(patch(
+                        "/api/employees/{employeeId}/status",
+                        unknownEmployeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "active": false
+                            }
+                            """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Employee not found: " + unknownEmployeeId));
     }
 
 }

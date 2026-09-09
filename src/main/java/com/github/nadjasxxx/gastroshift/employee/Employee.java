@@ -57,4 +57,8 @@ public class Employee {
         return active;
     }
 
+    public void updateActiveStatus(boolean active) {
+        this.active = active;
+    }
+
 }
