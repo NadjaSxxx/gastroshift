@@ -32,4 +32,18 @@ public class EmployeeService {
         );
         return employeeRepository.saveAndFlush(employee);
     }
+
+    public Employee updateStatus(
+            UUID employeeId,
+            UpdateEmployeeStatusRequest request
+    ) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() ->
+                        new EmployeeNotFoundException(employeeId)
+                );
+
+        employee.updateActiveStatus(request.active());
+
+        return employeeRepository.saveAndFlush(employee);
+    }
 }

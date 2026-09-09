@@ -11,6 +11,7 @@ import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
 import com.github.nadjasxxx.gastroshift.shift.ShiftNotFoundException;
 import com.github.nadjasxxx.gastroshift.shift.OverlappingShiftException;
 import com.github.nadjasxxx.gastroshift.shift.InvalidShiftFilterRangeException;
+import com.github.nadjasxxx.gastroshift.employee.InactiveEmployeeException;
 
 import java.time.Instant;
 
@@ -91,6 +92,19 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(InactiveEmployeeException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handleInactiveEmployee(
+            InactiveEmployeeException exception
+    ) {
+        return new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );
