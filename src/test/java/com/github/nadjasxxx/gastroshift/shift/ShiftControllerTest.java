@@ -619,4 +619,250 @@ class ShiftControllerTest {
                         .value(employeeId.toString()))
                 .andExpect(jsonPath("$.employee.active").value(true));
     }
+
+    @Test
+    void shouldUpdateShiftAndKeepEmployeeAssignment()
+            throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        Employee employee = employeeRepository.save(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        Shift shift = new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-15T10:00:00"),
+                LocalDateTime.parse("2026-09-15T16:00:00"),
+                "Service",
+                "Original notes"
+        );
+        shift.assignEmployee(employee);
+        shiftRepository.saveAndFlush(shift);
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "startTime": "2026-09-15T12:00:00",
+                              "endTime": "2026-09-15T18:00:00",
+                              "position": "Kitchen",
+                              "notes": "Updated shift"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(shiftId.toString()))
+                .andExpect(jsonPath("$.startTime")
+                        .value("2026-09-15T12:00:00"))
+                .andExpect(jsonPath("$.endTime")
+                        .value("2026-09-15T18:00:00"))
+                .andExpect(jsonPath("$.position").value("Kitchen"))
+                .andExpect(jsonPath("$.notes").value("Updated shift"))
+                .andExpect(jsonPath("$.employee.id")
+                        .value(employeeId.toString()));
+
+        Shift persistedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertEquals(
+                LocalDateTime.parse("2026-09-15T12:00:00"),
+                persistedShift.getStartTime()
+        );
+        assertEquals(
+                LocalDateTime.parse("2026-09-15T18:00:00"),
+                persistedShift.getEndTime()
+        );
+        assertEquals("Kitchen", persistedShift.getPosition());
+        assertEquals("Updated shift", persistedShift.getNotes());
+        assertEquals(
+                employeeId,
+                persistedShift.getEmployee().getId()
+        );
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingUnknownShift()
+            throws Exception {
+        UUID unknownShiftId =
+                UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}",
+                        unknownShiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "startTime": "2026-09-15T12:00:00",
+                              "endTime": "2026-09-15T18:00:00",
+                              "position": "Kitchen",
+                              "notes": "Updated shift"
+                            }
+                            """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Shift not found: " + unknownShiftId));
+    }
+
+    @Test
+    void shouldRejectUpdateWithInvalidTimeRangeAndKeepOriginalValues()
+            throws Exception {
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-15T10:00"),
+                LocalDateTime.parse("2026-09-15T16:00:00"),
+                "Service",
+                "Original notes"
+        ));
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "startTime": "2026-09-15T18:00:00",
+                              "endTime": "2026-09-15T12:00:00",
+                              "position": "Kitchen",
+                              "notes": "Invalid update"
+                            }
+                            """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value("End time must be after start time"));
+
+        Shift unchangedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertEquals(
+                LocalDateTime.parse("2026-09-15T10:00:00"),
+                unchangedShift.getStartTime()
+        );
+        assertEquals(
+                LocalDateTime.parse("2026-09-15T16:00:00"),
+                unchangedShift.getEndTime()
+        );
+        assertEquals("Service", unchangedShift.getPosition());
+        assertEquals("Original notes", unchangedShift.getNotes());
+    }
+
+    @Test
+    void shouldRejectUpdateWhenPositionIsMissing() throws Exception {
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-15T10:00:00"),
+                LocalDateTime.parse("2026-09-15T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "startTime": "2026-09-15T12:00:00",
+                              "endTime": "2026-09-15T18:00:00"
+                            }
+                            """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRejectOverlappingUpdateAndKeepOriginalValues()
+            throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID existingShiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+        UUID targetShiftId =
+                UUID.fromString("44444444-4444-4444-4444-444444444444");
+
+        Employee employee = employeeRepository.save(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        Shift existingShift = new Shift(
+                existingShiftId,
+                LocalDateTime.parse("2026-09-15T10:00:00"),
+                LocalDateTime.parse("2026-09-15T16:00:00"),
+                "Kitchen",
+                null
+        );
+        existingShift.assignEmployee(employee);
+        shiftRepository.save(existingShift);
+
+        Shift targetShift = new Shift(
+                targetShiftId,
+                LocalDateTime.parse("2026-09-15T18:00:00"),
+                LocalDateTime.parse("2026-09-15T22:00:00"),
+                "Service",
+                "Original notes"
+        );
+        targetShift.assignEmployee(employee);
+        shiftRepository.saveAndFlush(targetShift);
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}",
+                        targetShiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "startTime": "2026-09-15T15:00:00",
+                              "endTime": "2026-09-15T19:00:00",
+                              "position": "Bar",
+                              "notes": "Conflicting update"
+                            }
+                            """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").value(
+                        "Employee already has an overlapping shift: "
+                                + employeeId
+                ));
+
+        Shift unchangedShift = shiftRepository.findById(targetShiftId)
+                .orElseThrow();
+
+        assertEquals(
+                LocalDateTime.parse("2026-09-15T18:00:00"),
+                unchangedShift.getStartTime()
+        );
+        assertEquals(
+                LocalDateTime.parse("2026-09-15T22:00:00"),
+                unchangedShift.getEndTime()
+        );
+        assertEquals("Service", unchangedShift.getPosition());
+        assertEquals("Original notes", unchangedShift.getNotes());
+        assertEquals(
+                employeeId,
+                unchangedShift.getEmployee().getId()
+        );
+    }
 }
