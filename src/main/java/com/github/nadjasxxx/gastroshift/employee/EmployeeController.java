@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-
+import org.springframework.web.bind.annotation.PutMapping;
 import java.util.UUID;
 import java.util.List;
 
@@ -40,6 +40,14 @@ public class EmployeeController {
             @Valid @RequestBody UpdateEmployeeStatusRequest request
     ) {
         return employeeService.updateStatus(employeeId, request);
+    }
+
+    @PutMapping("/{employeeId}")
+    public Employee update(
+            @PathVariable UUID employeeId,
+            @Valid @RequestBody UpdateEmployeeRequest request
+    ) {
+        return employeeService.update(employeeId, request);
     }
 
 }

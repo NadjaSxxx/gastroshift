@@ -1,7 +1,6 @@
 package com.github.nadjasxxx.gastroshift.employee;
 
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +29,33 @@ public class EmployeeService {
                 request.email(),
                 true
         );
+        return employeeRepository.saveAndFlush(employee);
+    }
+
+    public Employee update(
+            UUID employeeId,
+            UpdateEmployeeRequest request
+    ) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() ->
+                        new EmployeeNotFoundException(employeeId)
+                );
+        boolean emailAlreadyExists =
+                employeeRepository.existsByEmailIgnoreCaseAndIdNot(
+                        request.email(),
+                        employeeId
+                );
+
+        if (emailAlreadyExists) {
+            throw new DuplicateEmployeeEmailException(request.email());
+        }
+
+        employee.updateDetails(
+                request.firstName(),
+                request.lastName(),
+                request.email()
+        );
+
         return employeeRepository.saveAndFlush(employee);
     }
 
