@@ -168,10 +168,11 @@ The test database is separate from the local development database.
 ### Employees
 
 | Method  | Endpoint                             | Description                        |
-| ------- | ------------------------------------ | ---------------------------------- |
+|---------|--------------------------------------|------------------------------------|
 | `GET`   | `/api/employees`                     | List all employees                 |
 | `POST`  | `/api/employees`                     | Create an employee                 |
 | `PATCH` | `/api/employees/{employeeId}/status` | Activate or deactivate an employee |
+| `PUT`   | `/api/employees/{employeeId}`        | Update an existing employee        |
 
 ### Shifts
 
@@ -216,6 +217,23 @@ Content-Type: application/json
   "active": false
 }
 ```
+
+### Update an Employee
+
+```http
+PUT /api/employees/{employeeId}
+Content-Type: application/json
+```
+
+```json
+{
+  "firstName": "Mira",
+  "lastName": "Muster",
+  "email": "mira.muster@example.com"
+}
+```
+
+Updating employee details preserves the employee ID and active status. Email addresses must remain unique regardless of letter case.
 
 ### Create a Shift
 

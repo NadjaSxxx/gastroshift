@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import com.github.nadjasxxx.gastroshift.TestcontainersConfiguration;
 import org.springframework.context.annotation.Import;
@@ -212,7 +214,7 @@ class EmployeeControllerTest {
     }
 
     @Test
-    void shouldReturnNotFoundWhenUpdatingUnknownEmployee()
+    void shouldReturnNotFoundWhenUpdatingUnknownEmployeeStatus()
             throws Exception {
         UUID unknownEmployeeId =
                 UUID.fromString("99999999-9999-9999-9999-999999999999");
@@ -232,6 +234,199 @@ class EmployeeControllerTest {
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message")
                         .value("Employee not found: " + unknownEmployeeId));
+    }
+
+    @Test
+    void shouldUpdateEmployeeAndKeepActiveStatus() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                false
+        ));
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "firstName": "Miriam",
+                              "lastName": "Muster",
+                              "email": "miriam.muster@example.com"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(employeeId.toString()))
+                .andExpect(jsonPath("$.firstName").value("Miriam"))
+                .andExpect(jsonPath("$.lastName").value("Muster"))
+                        .andExpect(jsonPath("$.email")
+                                .value("miriam.muster@example.com"))
+                        .andExpect(jsonPath("$.active").value(false));
+
+        Employee persistedEmployee =
+                employeeRepository.findById(employeeId).orElseThrow();
+
+        assertEquals("Miriam", persistedEmployee.getFirstName());
+        assertEquals("Muster", persistedEmployee.getLastName());
+        assertEquals(
+                "miriam.muster@example.com",
+                persistedEmployee.getEmail()
+        );
+        assertFalse(persistedEmployee.isActive());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingUnknownEmployeeDetails()
+            throws Exception {
+        UUID unknownEmployeeId =
+                UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}",
+                        unknownEmployeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "firstName": "Mira",
+                              "lastName": "Muster",
+                              "email": "mira.muster@example.com"
+                            }
+                            """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Employee not found: " + unknownEmployeeId));
+    }
+
+    @Test
+    void shouldRejectDuplicateEmailUpdateAndKeepOriginalValues()
+            throws Exception {
+        UUID firstEmployeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID secondEmployeeId =
+                UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        employeeRepository.save(new Employee(
+                firstEmployeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        employeeRepository.saveAndFlush(new Employee(
+                secondEmployeeId,
+                "Nora",
+                "Muster",
+                "nora.muster@example.com",
+                true
+        ));
+
+        String duplicateEmail = "NORA.MUSTER@EXAMPLE.COM";
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}",
+                        firstEmployeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "firstName": "Changed",
+                              "lastName": "Name",
+                              "email": "%s"
+                            }
+                            """.formatted(duplicateEmail)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").value(
+                        "An employee with email '%s' already exists"
+                                .formatted(duplicateEmail)
+                ));
+
+        Employee unchangedEmployee =
+                employeeRepository.findById(firstEmployeeId).orElseThrow();
+
+        assertEquals("Mira", unchangedEmployee.getFirstName());
+        assertEquals("Beispiel", unchangedEmployee.getLastName());
+        assertEquals(
+                "mira.beispiel@example.com",
+                unchangedEmployee.getEmail()
+        );
+    }
+
+    @Test
+    void shouldAllowChangingCaseOfOwnEmail() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "firstName": "Mira",
+                              "lastName": "Beispiel",
+                              "email": "MIRA.BEISPIEL@EXAMPLE.COM"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email")
+                        .value("MIRA.BEISPIEL@EXAMPLE.COM"));
+    }
+
+    @Test
+    void shouldRejectUpdateWhenFirstNameIsTooLong()
+            throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        String requestBody = """
+            {
+              "firstName": "%s",
+              "lastName": "Beispiel",
+              "email": "mira.beispiel@example.com"
+            }
+            """.formatted("A".repeat(101));
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+
+        Employee unchangedEmployee =
+                employeeRepository.findById(employeeId).orElseThrow();
+
+        assertEquals("Mira", unchangedEmployee.getFirstName());
     }
 
 }

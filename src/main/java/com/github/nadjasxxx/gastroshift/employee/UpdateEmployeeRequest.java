@@ -4,7 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record CreateEmployeeRequest(
+public record UpdateEmployeeRequest(
         @NotBlank(message = "First name must not be blank")
         @Size(
                 max = 100,
@@ -26,5 +26,6 @@ public record CreateEmployeeRequest(
                 message = "Email must not exceed 255 characters"
         )
         String email
+
 ) {
 }
