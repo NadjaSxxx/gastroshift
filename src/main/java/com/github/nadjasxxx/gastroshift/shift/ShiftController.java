@@ -73,4 +73,10 @@ public class ShiftController {
     ) {
         return shiftService.update(shiftId, request);
     }
+
+    @DeleteMapping("/{shiftId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID shiftId) {
+        shiftService.delete(shiftId);
+    }
 }
