@@ -183,6 +183,7 @@ The test database is separate from the local development database.
 | `PUT`    | `/api/shifts/{shiftId}/employee/{employeeId}` | Assign an employee to a shift        |
 | `DELETE` | `/api/shifts/{shiftId}/employee`              | Remove the employee assignment       |
 | `PUT`    | `/api/shifts/{shiftId}`                       | Update an existing shift             |
+| `DELETE` | `/api/shifts/{shiftId}`                       | Delete an existing shift             |
 
 ## Request Examples
 
@@ -286,6 +287,14 @@ Content-Type: application/json
 }
 ```
 
+### Delete a Shift
+
+```http
+DELETE /api/shifts/{shiftId}
+```
+
+A successful deletion returns `204 No Content`. Deleting an assigned shift removes only the shift; the employee remains stored.
+
 ## HTTP Status Codes
 
 | Status            | Meaning                                                         |
@@ -357,7 +366,6 @@ GastroShift currently provides a tested backend API. It does not yet include a f
 
 Planned improvements include:
 
-* deleting shifts,
 * employee availability,
 * response DTOs,
 * authentication and authorization,

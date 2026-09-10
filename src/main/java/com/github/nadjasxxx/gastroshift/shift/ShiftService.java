@@ -135,4 +135,13 @@ public class ShiftService {
 
         return shiftRepository.saveAndFlush(shift);
     }
+
+    public void delete(UUID shiftId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() ->
+                        new ShiftNotFoundException(shiftId));
+
+        shiftRepository.delete(shift);
+        shiftRepository.flush();
+    }
 }
