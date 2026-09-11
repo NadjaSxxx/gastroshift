@@ -50,4 +50,9 @@ public class EmployeeController {
         return employeeService.update(employeeId, request);
     }
 
+    @GetMapping("/{employeeId}")
+    public Employee findById(@PathVariable UUID employeeId) {
+        return employeeService.findById(employeeId);
+    }
+
 }

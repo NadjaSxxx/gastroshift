@@ -944,4 +944,85 @@ class ShiftControllerTest {
                 .andExpect(jsonPath("$.message")
                         .value("Shift not found: " + unknownShiftId));
     }
+
+    @Test
+    void shouldReturnAssignedShiftById() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        Employee employee = employeeRepository.save(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        Shift shift = new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-20T10:00:00"),
+                LocalDateTime.parse("2026-09-20T16:00:00"),
+                "Service",
+                "Terrace"
+        );
+        shift.assignEmployee(employee);
+        shiftRepository.saveAndFlush(shift);
+
+        mockMvc.perform(get(
+                        "/api/shifts/{shiftId}",
+                        shiftId
+                ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(shiftId.toString()))
+                .andExpect(jsonPath("$.startTime")
+                        .value("2026-09-20T10:00:00"))
+                .andExpect(jsonPath("$.endTime")
+                        .value("2026-09-20T16:00:00"))
+                .andExpect(jsonPath("$.position").value("Service"))
+                .andExpect(jsonPath("$.notes").value("Terrace"))
+                .andExpect(jsonPath("$.employee.id")
+                        .value(employeeId.toString()))
+                .andExpect(jsonPath("$.employee.firstName").value("Mira"));
+    }
+
+    @Test
+    void shouldReturnUnassignedShiftById() throws Exception {
+        UUID shiftId =
+                UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-09-20T10:00:00"),
+                LocalDateTime.parse("2026-09-20T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(get(
+                        "/api/shifts/{shiftId}",
+                        shiftId
+                ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(shiftId.toString()))
+                .andExpect(jsonPath("$.employee").doesNotExist());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenFindingUnknownShift()
+            throws Exception {
+        UUID unknownShiftId =
+                UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        mockMvc.perform(get(
+                        "/api/shifts/{shiftId}",
+                        unknownShiftId
+                ))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Shift not found: " + unknownShiftId));
+    }
 }

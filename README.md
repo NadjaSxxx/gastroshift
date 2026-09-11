@@ -173,6 +173,7 @@ The test database is separate from the local development database.
 | `POST`  | `/api/employees`                     | Create an employee                 |
 | `PATCH` | `/api/employees/{employeeId}/status` | Activate or deactivate an employee |
 | `PUT`   | `/api/employees/{employeeId}`        | Update an existing employee        |
+| `GET`   | `/api/employees/{employeeId}`        | Get one employee                   |
 
 ### Shifts
 
@@ -185,6 +186,7 @@ The test database is separate from the local development database.
 | `DELETE` | `/api/shifts/{shiftId}/employee`              | Remove the employee assignment       |
 | `PUT`    | `/api/shifts/{shiftId}`                       | Update an existing shift             |
 | `DELETE` | `/api/shifts/{shiftId}`                       | Delete an existing shift             |
+| `GET`    | `/api/shifts/{shiftId}`                       | Get one shift                        |
 
 ## Request Examples
 
@@ -235,6 +237,12 @@ Content-Type: application/json
 
 Updating employee details preserves the employee ID and active status. Email addresses must remain unique regardless of letter case.
 
+### Get an Employee
+
+```http
+GET /api/employees/{employeeId}
+```
+
 ### Create a Shift
 
 ```http
@@ -252,6 +260,14 @@ Content-Type: application/json
 ```
 
 `notes` is optional. The end time must be after the start time.
+
+### Get a Shift
+
+```http
+GET /api/shifts/{shiftId}
+```
+
+The shift response includes its employee assignment when one exists.
 
 ### Filter Shifts
 
