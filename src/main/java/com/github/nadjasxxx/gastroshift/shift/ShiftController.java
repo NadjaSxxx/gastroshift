@@ -79,4 +79,9 @@ public class ShiftController {
     public void delete(@PathVariable UUID shiftId) {
         shiftService.delete(shiftId);
     }
+
+    @GetMapping("/{shiftId}")
+    public Shift findById(@PathVariable UUID shiftId) {
+        return shiftService.findById(shiftId);
+    }
 }

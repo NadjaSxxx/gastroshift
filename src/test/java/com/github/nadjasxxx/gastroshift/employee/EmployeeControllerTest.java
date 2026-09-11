@@ -429,4 +429,47 @@ class EmployeeControllerTest {
         assertEquals("Mira", unchangedEmployee.getFirstName());
     }
 
+    @Test
+    void shouldReturnEmployeeById() throws Exception {
+        UUID employeeId =
+                UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+        employeeRepository.saveAndFlush(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}",
+                        employeeId
+                ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(employeeId.toString()))
+                .andExpect(jsonPath("$.firstName").value("Mira"))
+                .andExpect(jsonPath("$.lastName").value("Beispiel"))
+                .andExpect(jsonPath("$.email")
+                        .value("mira.beispiel@example.com"))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenFindingUnknownEmployee()
+            throws Exception {
+        UUID unknownEmployeeId =
+                UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}",
+                        unknownEmployeeId
+                ))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Employee not found: " + unknownEmployeeId));
+    }
+
 }

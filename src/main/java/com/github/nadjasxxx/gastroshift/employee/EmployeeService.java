@@ -72,4 +72,11 @@ public class EmployeeService {
 
         return employeeRepository.saveAndFlush(employee);
     }
+
+    public Employee findById(UUID employeeId) {
+        return employeeRepository.findById(employeeId)
+                .orElseThrow(() ->
+                        new EmployeeNotFoundException(employeeId)
+                );
+    }
 }
