@@ -24,35 +24,51 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public List<Employee> findAll() {
-        return employeeService.findAll();
+    public List<EmployeeResponse> findAll() {
+
+        return employeeService.findAll()
+                .stream()
+                .map(EmployeeResponse::from)
+                .toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Employee create(@Valid @RequestBody CreateEmployeeRequest request) {
-        return employeeService.create(request);
+    public EmployeeResponse create(
+            @Valid @RequestBody CreateEmployeeRequest request
+    ) {
+        return EmployeeResponse.from(
+                employeeService.create(request)
+        );
     }
 
     @PatchMapping("/{employeeId}/status")
-    public Employee updateStatus(
+    public EmployeeResponse updateStatus(
             @PathVariable UUID employeeId,
             @Valid @RequestBody UpdateEmployeeStatusRequest request
     ) {
-        return employeeService.updateStatus(employeeId, request);
+        return EmployeeResponse.from(
+                employeeService.updateStatus(employeeId, request)
+        );
     }
 
     @PutMapping("/{employeeId}")
-    public Employee update(
+    public EmployeeResponse update(
             @PathVariable UUID employeeId,
             @Valid @RequestBody UpdateEmployeeRequest request
     ) {
-        return employeeService.update(employeeId, request);
+        return EmployeeResponse.from(
+                employeeService.update(employeeId, request)
+        );
     }
 
     @GetMapping("/{employeeId}")
-    public Employee findById(@PathVariable UUID employeeId) {
-        return employeeService.findById(employeeId);
+    public EmployeeResponse findById(
+            @PathVariable UUID employeeId
+    ) {
+        return EmployeeResponse.from(
+                employeeService.findById(employeeId)
+        );
     }
 
 }

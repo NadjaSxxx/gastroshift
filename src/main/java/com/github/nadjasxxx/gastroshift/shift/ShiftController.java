@@ -30,7 +30,7 @@ public class ShiftController {
     }
 
     @GetMapping
-    public List<Shift> findAll(
+    public List<ShiftResponse> findAll(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime from,
@@ -39,25 +39,37 @@ public class ShiftController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime to
     ) {
+        List<Shift> shifts;
+
         if (from == null && to == null) {
-            return shiftService.findAll();
+            shifts = shiftService.findAll();
+        } else {
+            shifts = shiftService.findAll(from, to);
         }
 
-        return shiftService.findAll(from, to);
+        return shifts.stream()
+                .map(ShiftResponse::from)
+                .toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Shift create(@Valid @RequestBody CreateShiftRequest request) {
-        return shiftService.create(request);
+    public ShiftResponse create(
+            @Valid @RequestBody CreateShiftRequest request
+    ) {
+        return ShiftResponse.from(
+                shiftService.create(request)
+        );
     }
 
     @PutMapping("/{shiftId}/employee/{employeeId}")
-    public Shift assignEmployee(
+    public ShiftResponse assignEmployee(
             @PathVariable UUID shiftId,
             @PathVariable UUID employeeId
     ) {
-        return shiftService.assignEmployee(shiftId, employeeId);
+        return ShiftResponse.from(
+                shiftService.assignEmployee(shiftId, employeeId)
+        );
     }
 
     @DeleteMapping("/{shiftId}/employee")
@@ -67,11 +79,13 @@ public class ShiftController {
     }
 
     @PutMapping("/{shiftId}")
-    public Shift update(
+    public ShiftResponse update(
             @PathVariable UUID shiftId,
             @Valid @RequestBody UpdateShiftRequest request
     ) {
-        return shiftService.update(shiftId, request);
+        return ShiftResponse.from(
+                shiftService.update(shiftId, request)
+        );
     }
 
     @DeleteMapping("/{shiftId}")
@@ -81,7 +95,9 @@ public class ShiftController {
     }
 
     @GetMapping("/{shiftId}")
-    public Shift findById(@PathVariable UUID shiftId) {
-        return shiftService.findById(shiftId);
+    public ShiftResponse findById(@PathVariable UUID shiftId) {
+        return ShiftResponse.from(
+                shiftService.findById(shiftId)
+        );
     }
 }
