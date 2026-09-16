@@ -8,7 +8,7 @@ The project is currently under active development as a portfolio and learning pr
 
 ### Employees
 
-* Create and list employees
+* Create, list, retrieve, and update employees
 * Validate employee input
 * Enforce case-insensitive unique email addresses
 * Activate and deactivate employees
@@ -16,7 +16,7 @@ The project is currently under active development as a portfolio and learning pr
 
 ### Shifts
 
-* Create and list shifts
+* Create, list, retrieve, update, and delete shifts
 * Filter shifts by date and time range
 * Validate that the end time is after the start time
 * Assign one employee to a shift
@@ -33,6 +33,9 @@ The project is currently under active development as a portfolio and learning pr
 * Integration tests with Spring MockMvc
 * PostgreSQL integration tests with Testcontainers
 * Docker Compose development environment
+* OAuth 2.0 resource server authentication
+* JWT validation with Keycloak
+* Dedicated API response DTOs
 
 ## Technology Stack
 
@@ -48,6 +51,8 @@ The project is currently under active development as a portfolio and learning pr
 * JUnit
 * MockMvc
 * Testcontainers
+* Spring Security
+* Keycloak 26.7.3
 
 ## Requirements
 
@@ -67,6 +72,8 @@ Create a `.env` file in the project root:
 POSTGRES_DB=gastroshift
 POSTGRES_USER=gastroshift
 POSTGRES_PASSWORD=change-me
+KEYCLOAK_ADMIN_USERNAME=admin
+KEYCLOAK_ADMIN_PASSWORD=change-me
 ```
 
 Do not commit `.env` to Git.
@@ -85,43 +92,83 @@ http://localhost:8081
 
 PostgreSQL is exposed locally on port `5432`.
 
-## Running PostgreSQL
+Keycloak is available locally on:
 
-Start the database container:
+```text
+http://localhost:8080
+```
+
+The Keycloak administration console uses the bootstrap administrator credentials configured in `.env`.
+
+## Running the Development Infrastructure
+
+Start PostgreSQL and Keycloak:
 
 ```bash
 docker compose up -d
 ```
 
-Check its status:
+Check their status:
 
 ```bash
 docker compose ps
 ```
 
-The PostgreSQL service should report:
+The PostgreSQL service should report `healthy`. Keycloak may require a little more time during its first startup.
 
-```text
-healthy
-```
-
-View its logs:
+View the service logs:
 
 ```bash
 docker compose logs postgres
+docker compose logs keycloak
 ```
 
-Stop the container without deleting its data:
+Stop both services without deleting their data:
 
 ```bash
 docker compose stop
 ```
 
-Avoid the following command unless you intentionally want to delete the local database volume:
+Avoid the following command unless you intentionally want to delete both the local PostgreSQL data and the local Keycloak configuration:
 
 ```bash
 docker compose down -v
 ```
+
+## Configuring Keycloak
+
+Open the Keycloak administration console:
+
+```text
+http://localhost:8080
+```
+
+Sign in with the bootstrap administrator credentials configured in `.env`.
+
+Create a realm named:
+
+```text
+gastroshift
+```
+
+The realm publishes its OpenID Connect configuration at:
+
+```text
+http://localhost:8080/realms/gastroshift/.well-known/openid-configuration
+```
+
+Inside the `gastroshift` realm, create an OpenID Connect client with the following settings:
+
+* Client ID: `gastroshift-api-test-client`
+* Client authentication: enabled
+* Authorization: disabled
+* Standard flow: disabled
+* Direct access grants: disabled
+* Service accounts roles: enabled
+
+Root URL, Home URL, redirect URIs, and web origins can remain empty because this technical client does not use a browser-based login flow.
+
+The client secret is available on the client's **Credentials** tab. Treat it as a password and do not commit it to Git.
 
 ## Running the Application
 
@@ -145,9 +192,44 @@ http://localhost:8081
 
 Flyway applies pending database migrations automatically during startup. Hibernate validates that the entity model matches the database schema.
 
+## Calling the Authenticated API
+
+All endpoints below `/api` require a valid access token issued by the `gastroshift` Keycloak realm.
+
+For local testing, request an access token in PowerShell. Replace the placeholder with the client secret from Keycloak:
+
+```powershell
+$tokenResponse = Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://localhost:8080/realms/gastroshift/protocol/openid-connect/token" `
+    -ContentType "application/x-www-form-urlencoded" `
+    -Body @{
+        grant_type    = "client_credentials"
+        client_id     = "gastroshift-api-test-client"
+        client_secret = "HIER_CLIENT_SECRET_EINSETZEN"
+    }
+
+$accessToken = $tokenResponse.access_token
+```
+
+Send the token in the HTTP `Authorization` header:
+
+```powershell
+Invoke-RestMethod `
+    -Method Get `
+    -Uri "http://localhost:8081/api/employees" `
+    -Headers @{
+        Authorization = "Bearer $accessToken"
+    }
+```
+
+Requests without a valid token receive HTTP status `401 Unauthorized`.
+
 ## Running the Tests
 
 Docker must be running because the integration tests start a temporary PostgreSQL container through Testcontainers.
+
+The automated tests mock JWT processing and therefore do not require a running Keycloak instance.
 
 ### Windows
 
@@ -189,6 +271,12 @@ The test database is separate from the local development database.
 | `GET`    | `/api/shifts/{shiftId}`                       | Get one shift                        |
 
 ## Request Examples
+
+All examples require the following HTTP header. It is omitted from the individual examples for readability:
+
+```http
+Authorization: Bearer <access-token>
+```
 
 ### Create an Employee
 
@@ -331,16 +419,17 @@ A successful deletion returns `204 No Content`. Deleting an assigned shift remov
 
 ## HTTP Status Codes
 
-| Status            | Meaning                                                         |
-| ----------------- | --------------------------------------------------------------- |
-| `200 OK`          | Request completed successfully                                  |
-| `201 Created`     | Resource created successfully                                   |
-| `204 No Content`  | Assignment removed successfully                                 |
-| `400 Bad Request` | Input or time range is invalid                                  |
-| `404 Not Found`   | Employee or shift does not exist                                |
-| `409 Conflict`    | Email, status, or shift assignment conflicts with existing data |
+| Status             | Meaning                                                         |
+|--------------------|-----------------------------------------------------------------|
+| `200 OK`           | Request completed successfully                                  |
+| `201 Created`      | Resource created successfully                                   |
+| `204 No Content`   | Request completed successfully without a response body          |
+| `400 Bad Request`  | Input or time range is invalid                                  |
+| `401 Unauthorized` | Access token is missing, invalid, expired, or not accepted      |
+| `404 Not Found`    | Employee or shift does not exist                                |
+| `409 Conflict`     | Email, status, or shift assignment conflicts with existing data |
 
-Error responses use a consistent structure:
+Domain and validation error responses use a consistent structure:
 
 ```json
 {
@@ -378,6 +467,7 @@ src
 │   ├── java
 │   │   └── com.github.nadjasxxx.gastroshift
 │   │       ├── employee
+│   │       ├── security
 │   │       └── shift
 │   └── resources
 │       └── db
@@ -386,23 +476,25 @@ src
     └── java
         └── com.github.nadjasxxx.gastroshift
             ├── employee
+            ├── security
             └── shift
 ```
 
 The code is organized by business domain:
 
 * `employee` contains employee-related entities, repositories, services, controllers, requests, and exceptions.
+* `security` contains the Spring Security and OAuth 2.0 resource server configuration.
 * `shift` contains shift-related entities, repositories, services, controllers, requests, and exceptions.
 
 ## Current Status
 
-GastroShift currently provides a tested backend API. It does not yet include a frontend or authentication.
+GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, and Keycloak-based authentication. It does not yet include role-based authorization or a frontend.
 
 Planned improvements include:
 
+* role-based authorization,
+* mapping Keycloak users to employees,
 * employee availability,
-* response DTOs,
-* authentication and authorization,
 * weekly schedule views,
 * a web frontend,
 * deployment and production configuration.

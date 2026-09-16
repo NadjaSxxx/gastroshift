@@ -20,6 +20,9 @@ import org.junit.jupiter.api.AfterEach;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,10 +37,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
+@WithMockUser
 class ShiftControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Autowired
     private ShiftRepository shiftRepository;
