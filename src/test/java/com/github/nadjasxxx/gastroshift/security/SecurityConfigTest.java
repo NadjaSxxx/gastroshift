@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,9 +32,21 @@ public class SecurityConfigTest {
     }
 
     @Test
-    void shouldAllowRequestWithJwt() throws Exception {
+    void shouldRejectAuthenticatedRequestWithoutManagerRole()
+            throws Exception {
         mockMvc.perform(get("/api/employees")
                         .with(jwt()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldAllowRequestWithManagerRole() throws Exception {
+        mockMvc.perform(get("/api/employees")
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority(
+                                        "ROLE_MANAGER"
+                                )
+                        )))
                 .andExpect(status().isOk());
     }
 }

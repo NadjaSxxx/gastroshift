@@ -36,6 +36,7 @@ The project is currently under active development as a portfolio and learning pr
 * OAuth 2.0 resource server authentication
 * JWT validation with Keycloak
 * Dedicated API response DTOs
+* Role-based authorization for management endpoints
 
 ## Technology Stack
 
@@ -170,6 +171,16 @@ Root URL, Home URL, redirect URIs, and web origins can remain empty because this
 
 The client secret is available on the client's **Credentials** tab. Treat it as a password and do not commit it to Git.
 
+Create a realm role named:
+
+```text
+MANAGER
+```
+
+Open the gastroshift-api-test-client, select Service account roles, and assign the MANAGER realm role to its service account.
+
+The existing /api/** endpoints represent the management API and require this role.
+
 ## Running the Application
 
 ### Windows
@@ -194,7 +205,7 @@ Flyway applies pending database migrations automatically during startup. Hiberna
 
 ## Calling the Authenticated API
 
-All endpoints below `/api` require a valid access token issued by the `gastroshift` Keycloak realm.
+All endpoints below `/api` require a valid access token issued by the `gastroshift` Keycloak realm and containing the `MANAGER` realm role.
 
 For local testing, request an access token in PowerShell. Replace the placeholder with the client secret from Keycloak:
 
@@ -223,7 +234,7 @@ Invoke-RestMethod `
     }
 ```
 
-Requests without a valid token receive HTTP status `401 Unauthorized`.
+Requests without a valid token receive HTTP status `401 Unauthorized`. Authenticated requests without the `MANAGER` role receive HTTP status `403 Forbidden`.
 
 ## Running the Tests
 
@@ -426,6 +437,7 @@ A successful deletion returns `204 No Content`. Deleting an assigned shift remov
 | `204 No Content`   | Request completed successfully without a response body          |
 | `400 Bad Request`  | Input or time range is invalid                                  |
 | `401 Unauthorized` | Access token is missing, invalid, expired, or not accepted      |
+| `403 Forbidden`    | Authentication succeeded, but the required role is missing      |
 | `404 Not Found`    | Employee or shift does not exist                                |
 | `409 Conflict`     | Email, status, or shift assignment conflicts with existing data |
 
@@ -488,12 +500,15 @@ The code is organized by business domain:
 
 ## Current Status
 
-GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, and Keycloak-based authentication. It does not yet include role-based authorization or a frontend.
+## Current Status
+
+GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, and manager-only authorization for the management API. It does not yet include employee-specific authorization or a frontend.
 
 Planned improvements include:
 
-* role-based authorization,
-* mapping Keycloak users to employees,
+* mapping Keycloak users to employee records,
+* employee self-service authorization,
+* restricting employees to their own shifts,
 * employee availability,
 * weekly schedule views,
 * a web frontend,
