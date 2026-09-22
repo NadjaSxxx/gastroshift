@@ -29,7 +29,7 @@ import java.util.UUID;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
-@WithMockUser
+@WithMockUser(roles = "MANAGER")
 class EmployeeControllerTest {
 
     @Autowired
