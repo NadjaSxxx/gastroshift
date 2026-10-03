@@ -79,4 +79,29 @@ public class EmployeeService {
                         new EmployeeNotFoundException(employeeId)
                 );
     }
+
+    public Employee linkIdentity(
+            UUID employeeId,
+            LinkEmployeeIdentityRequest request
+    ) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() ->
+                        new EmployeeNotFoundException(employeeId)
+                );
+
+        employeeRepository
+                .findByIdentitySubject(request.identitySubject())
+                .filter(existingEmployee ->
+                        !existingEmployee.getId().equals(employeeId)
+                )
+                .ifPresent(existingEmployee -> {
+                    throw new DuplicateEmployeeIdentityException(
+                            request.identitySubject()
+                    );
+                });
+
+        employee.linkIdentity(request.identitySubject());
+
+        return employeeRepository.saveAndFlush(employee);
+    }
 }

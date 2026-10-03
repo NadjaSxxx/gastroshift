@@ -26,6 +26,13 @@ public class Employee {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(
+            name = "identity_subject",
+            length = 255,
+            unique = true
+    )
+    private String identitySubject;
+
     protected Employee() {
     }
 
@@ -57,6 +64,8 @@ public class Employee {
         return active;
     }
 
+    public String getIdentitySubject() { return identitySubject; }
+
     public void updateActiveStatus(boolean active) {
         this.active = active;
     }
@@ -69,6 +78,10 @@ public class Employee {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
+    }
+
+    public void linkIdentity(String identitySubject) {
+        this.identitySubject = identitySubject;
     }
 
 }

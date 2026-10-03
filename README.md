@@ -13,6 +13,7 @@ The project is currently under active development as a portfolio and learning pr
 * Enforce case-insensitive unique email addresses
 * Activate and deactivate employees
 * Return structured errors for invalid or conflicting requests
+* Link employee records to external identity subjects
 
 ### Shifts
 
@@ -23,6 +24,7 @@ The project is currently under active development as a portfolio and learning pr
 * Remove an employee assignment
 * Prevent overlapping assignments for the same employee
 * Prevent inactive employees from receiving new assignments
+* Allow authenticated employees to retrieve their own assigned shifts
 
 ### Technical Features
 
@@ -176,10 +178,18 @@ Create a realm role named:
 ```text
 MANAGER
 ```
-
 Open the gastroshift-api-test-client, select Service account roles, and assign the MANAGER realm role to its service account.
 
 The existing /api/** endpoints represent the management API and require this role.
+
+Create another realm role named:
+
+```text
+EMPLOYEE
+```
+Create a second technical OpenID Connect client named gastroshift-employee-test-client with client authentication and service accounts enabled. Assign only the EMPLOYEE realm role to its service account.
+
+The MANAGER role grants access to the management API. The EMPLOYEE role grants access to employee self-service endpoints.
 
 ## Running the Application
 
@@ -260,13 +270,14 @@ The test database is separate from the local development database.
 
 ### Employees
 
-| Method  | Endpoint                             | Description                        |
-|---------|--------------------------------------|------------------------------------|
-| `GET`   | `/api/employees`                     | List all employees                 |
-| `POST`  | `/api/employees`                     | Create an employee                 |
-| `PATCH` | `/api/employees/{employeeId}/status` | Activate or deactivate an employee |
-| `PUT`   | `/api/employees/{employeeId}`        | Update an existing employee        |
-| `GET`   | `/api/employees/{employeeId}`        | Get one employee                   |
+| Method  | Endpoint                               | Description                             |
+|---------|----------------------------------------|-----------------------------------------|
+| `GET`   | `/api/employees`                       | List all employees                      |
+| `POST`  | `/api/employees`                       | Create an employee                      |
+| `PATCH` | `/api/employees/{employeeId}/status`   | Activate or deactivate an employee      |
+| `PUT`   | `/api/employees/{employeeId}`          | Update an existing employee             |
+| `PUT`   | `/api/employees/{employeeId}/identity` | Link an employee to an identity subject |
+| `GET`   | `/api/employees/{employeeId}`          | Get one employee                        |
 
 ### Shifts
 
@@ -280,6 +291,12 @@ The test database is separate from the local development database.
 | `PUT`    | `/api/shifts/{shiftId}`                       | Update an existing shift             |
 | `DELETE` | `/api/shifts/{shiftId}`                       | Delete an existing shift             |
 | `GET`    | `/api/shifts/{shiftId}`                       | Get one shift                        |
+
+### Employee Self-Service
+
+| Method | Endpoint         | Description                              |
+|--------|------------------|------------------------------------------|
+| `GET`  | `/api/me/shifts` | List the authenticated employee's shifts |
 
 ## Request Examples
 
@@ -404,6 +421,29 @@ DELETE /api/shifts/{shiftId}/employee
 
 A successful request returns `204 No Content`. Repeating the request for an already unassigned shift also succeeds.
 
+### Link an Employee Identity
+
+```http
+PUT /api/employees/{employeeId}/identity
+Content-Type: application/json
+```
+
+```json
+{
+  "identitySubject": "keycloak-subject-value"
+}
+```
+
+The identity subject must be unique. Repeating the same link for the same employee is allowed.
+
+### Get Own Shifts
+
+```http
+GET /api/me/shifts
+```
+
+The employee is identified through the JWT `sub` claim. No employee ID is accepted from the request.
+
 ### Update a Shift
 
 ```http
@@ -463,11 +503,12 @@ src/main/resources/db/migration
 Current migrations:
 
 | Version | Purpose                                         |
-| ------- | ----------------------------------------------- |
+|---------|-------------------------------------------------|
 | `V1`    | Create the employees table                      |
 | `V2`    | Enforce case-insensitive unique employee emails |
 | `V3`    | Create the shifts table                         |
 | `V4`    | Add employee assignments to shifts              |
+| `V5`    | Add unique identity subjects to employees       |
 
 Existing migrations must not be modified after they have been applied. Schema changes should be introduced through new migration files.
 
@@ -480,6 +521,7 @@ src
 │   │   └── com.github.nadjasxxx.gastroshift
 │   │       ├── employee
 │   │       ├── security
+│   │       ├── selfservice
 │   │       └── shift
 │   └── resources
 │       └── db
@@ -488,6 +530,7 @@ src
     └── java
         └── com.github.nadjasxxx.gastroshift
             ├── employee
+            ├── selfservice
             ├── security
             └── shift
 ```
@@ -497,17 +540,16 @@ The code is organized by business domain:
 * `employee` contains employee-related entities, repositories, services, controllers, requests, and exceptions.
 * `security` contains the Spring Security and OAuth 2.0 resource server configuration.
 * `shift` contains shift-related entities, repositories, services, controllers, requests, and exceptions.
+* `selfservice` contains endpoints and services for the currently authenticated employee.
 
 ## Current Status
 
 ## Current Status
 
-GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, and manager-only authorization for the management API. It does not yet include employee-specific authorization or a frontend.
+GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, manager-only authorization for the management API, and employee self-service access to assigned shifts. It does not yet include a frontend.
 
 Planned improvements include:
 
-* mapping Keycloak users to employee records,
-* employee self-service authorization,
 * restricting employees to their own shifts,
 * employee availability,
 * weekly schedule views,

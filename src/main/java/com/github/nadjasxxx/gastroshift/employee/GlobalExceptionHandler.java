@@ -12,6 +12,8 @@ import com.github.nadjasxxx.gastroshift.shift.ShiftNotFoundException;
 import com.github.nadjasxxx.gastroshift.shift.OverlappingShiftException;
 import com.github.nadjasxxx.gastroshift.shift.InvalidShiftFilterRangeException;
 import com.github.nadjasxxx.gastroshift.employee.InactiveEmployeeException;
+import com.github.nadjasxxx.gastroshift.employee.DuplicateEmployeeIdentityException;
+import com.github.nadjasxxx.gastroshift.selfservice.EmployeeIdentityNotLinkedException;
 
 import java.time.Instant;
 
@@ -105,6 +107,32 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.CONFLICT.value(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(DuplicateEmployeeIdentityException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handleDuplicateEmployeeIdentity(
+            DuplicateEmployeeIdentityException exception
+    ) {
+        return new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(EmployeeIdentityNotLinkedException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiError handleEmployeeIdentityNotLinked(
+            EmployeeIdentityNotLinkedException exception
+    ) {
+        return new ApiError(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );

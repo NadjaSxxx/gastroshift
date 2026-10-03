@@ -35,6 +35,8 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/me/**")
+                        .hasRole("EMPLOYEE")
                         .requestMatchers("/api/**")
                         .hasRole("MANAGER")
                         .anyRequest()
