@@ -37,4 +37,6 @@ public interface ShiftRepository extends JpaRepository<Shift, UUID> {
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to
     );
+
+    List<Shift> findByEmployee_IdOrderByStartTimeAsc(UUID employeeID);
 }

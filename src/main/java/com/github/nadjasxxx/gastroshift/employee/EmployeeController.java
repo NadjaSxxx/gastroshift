@@ -71,4 +71,17 @@ public class EmployeeController {
         );
     }
 
+    @PutMapping("/{employeeId}/identity")
+    public EmployeeResponse linkIdentity(
+            @PathVariable UUID employeeId,
+            @Valid @RequestBody LinkEmployeeIdentityRequest request
+    ) {
+        Employee employee = employeeService.linkIdentity(
+                employeeId,
+                request
+        );
+
+        return EmployeeResponse.from(employee);
+    }
+
 }

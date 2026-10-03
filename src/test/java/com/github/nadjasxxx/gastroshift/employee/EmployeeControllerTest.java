@@ -479,4 +479,106 @@ class EmployeeControllerTest {
                         .value("Employee not found: " + unknownEmployeeId));
     }
 
+    @Test
+    void shouldLinkIdentityToEmployee() throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}/identity",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "identitySubject": "keycloak-user-123"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(employeeId.toString()));
+
+        Employee employee = employeeRepository
+                .findById(employeeId)
+                .orElseThrow();
+
+        assertEquals(
+                "keycloak-user-123",
+                employee.getIdentitySubject()
+        );
+    }
+
+    @Test
+    void shouldRejectBlankIdentitySubject() throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}/identity",
+                        employeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "identitySubject": " "
+                            }
+                            """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenLinkingUnknownEmployee()
+            throws Exception {
+        UUID unknownEmployeeId = UUID.fromString(
+                "99999999-9999-9999-9999-999999999999"
+        );
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}/identity",
+                        unknownEmployeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "identitySubject": "keycloak-user-123"
+                            }
+                            """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldRejectIdentitySubjectLinkedToAnotherEmployee()
+            throws Exception {
+        UUID firstEmployeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+        UUID secondEmployeeId = UUID.fromString(
+                "22222222-2222-2222-2222-222222222222"
+        );
+
+        Employee firstEmployee = employeeRepository
+                .findById(firstEmployeeId)
+                .orElseThrow();
+
+        firstEmployee.linkIdentity("keycloak-user-123");
+        employeeRepository.saveAndFlush(firstEmployee);
+
+        mockMvc.perform(put(
+                        "/api/employees/{employeeId}/identity",
+                        secondEmployeeId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "identitySubject": "keycloak-user-123"
+                            }
+                            """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Identity subject 'keycloak-user-123' " +
+                                "is already linked to an employee"
+                ));
+    }
 }
