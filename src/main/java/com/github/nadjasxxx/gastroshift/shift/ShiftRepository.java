@@ -38,5 +38,18 @@ public interface ShiftRepository extends JpaRepository<Shift, UUID> {
             @Param("to") LocalDateTime to
     );
 
+    @Query("""
+        SELECT COUNT(shift) > 0
+        FROM Shift shift
+        WHERE shift.employee.id = :employeeId
+          AND shift.startTime < :endTime
+          AND shift.endTime > :startTime
+        """)
+    boolean existsAssignedShiftOverlapping(
+            @Param("employeeId") UUID employeeId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
     List<Shift> findByEmployee_IdOrderByStartTimeAsc(UUID employeeID);
 }

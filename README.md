@@ -14,6 +14,7 @@ The project is currently under active development as a portfolio and learning pr
 * Activate and deactivate employees
 * Return structured errors for invalid or conflicting requests
 * Link employee records to external identity subjects
+* Create, list, and delete personal unavailability periods
 
 ### Shifts
 
@@ -25,6 +26,7 @@ The project is currently under active development as a portfolio and learning pr
 * Prevent overlapping assignments for the same employee
 * Prevent inactive employees from receiving new assignments
 * Allow authenticated employees to retrieve their own assigned shifts
+* Prevent assignments and updates during employee unavailability
 
 ### Technical Features
 
@@ -294,9 +296,12 @@ The test database is separate from the local development database.
 
 ### Employee Self-Service
 
-| Method | Endpoint         | Description                              |
-|--------|------------------|------------------------------------------|
-| `GET`  | `/api/me/shifts` | List the authenticated employee's shifts |
+| Method   | Endpoint                                      | Description                             |
+|----------|-----------------------------------------------|-----------------------------------------|
+| `GET`    | `/api/me/shifts`                              | List the authenticated employee's shifts|
+| `GET`    | `/api/me/unavailability`                      | List personal unavailability periods    |
+| `POST`   | `/api/me/unavailability`                      | Create a personal unavailability period |
+| `DELETE` | `/api/me/unavailability/{unavailabilityId}`   | Delete a personal unavailability period |
 
 ## Request Examples
 
@@ -466,6 +471,39 @@ Content-Type: application/json
 DELETE /api/shifts/{shiftId}
 ```
 
+### Create Own Unavailability
+
+```http
+POST /api/me/unavailability
+Content-Type: application/json
+```
+
+```json
+{
+  "startTime": "2026-11-10T08:00:00",
+  "endTime": "2026-11-10T16:00:00",
+  "notes": "Medical appointment"
+}
+```
+
+The end time must be after the start time. The period must not overlap another unavailability period or an already assigned shift.
+
+### Get Own Unavailability
+
+```http
+GET /api/me/unavailability
+```
+
+Results are ordered by start time.
+
+### Delete Own Unavailability
+
+```http
+DELETE /api/me/unavailability/{unavailabilityId}
+```
+
+A successful deletion returns `204 No Content`. Employees cannot delete another employee's unavailability.
+
 A successful deletion returns `204 No Content`. Deleting an assigned shift removes only the shift; the employee remains stored.
 
 ## HTTP Status Codes
@@ -509,6 +547,7 @@ Current migrations:
 | `V3`    | Create the shifts table                         |
 | `V4`    | Add employee assignments to shifts              |
 | `V5`    | Add unique identity subjects to employees       |
+| `V6`    | Create the employee unavailability table        |
 
 Existing migrations must not be modified after they have been applied. Schema changes should be introduced through new migration files.
 
@@ -523,6 +562,7 @@ src
 │   │       ├── security
 │   │       ├── selfservice
 │   │       └── shift
+│   │       └── unavailability
 │   └── resources
 │       └── db
 │           └── migration
@@ -533,6 +573,7 @@ src
             ├── selfservice
             ├── security
             └── shift
+            └── unavailability
 ```
 
 The code is organized by business domain:
@@ -541,17 +582,19 @@ The code is organized by business domain:
 * `security` contains the Spring Security and OAuth 2.0 resource server configuration.
 * `shift` contains shift-related entities, repositories, services, controllers, requests, and exceptions.
 * `selfservice` contains endpoints and services for the currently authenticated employee.
+* `unavailability` contains employee unavailability entities, repositories, services, controllers, DTOs, and exceptions.
 
 ## Current Status
 
 ## Current Status
 
-GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, manager-only authorization for the management API, and employee self-service access to assigned shifts. It does not yet include a frontend.
+GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, manager-only authorization for the management API, employee self-service access to assigned shifts and possibility for employees to manage times of unavailability (including preventing overlap with assigned shifts). It does not yet include a frontend.
 
 Planned improvements include:
 
 * restricting employees to their own shifts,
-* employee availability,
+* recurring weekly availability,
+* manager views for employee availability,
 * weekly schedule views,
 * a web frontend,
 * deployment and production configuration.
