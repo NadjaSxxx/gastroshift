@@ -1,16 +1,17 @@
 package com.github.nadjasxxx.gastroshift.employee;
 
 
+import com.github.nadjasxxx.gastroshift.shift.*;
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityNotFoundException;
+import com.github.nadjasxxx.gastroshift.unavailability.InvalidUnavailabilityTimeRangeException;
+import com.github.nadjasxxx.gastroshift.unavailability.OverlappingUnavailabilityException;
+import com.github.nadjasxxx.gastroshift.unavailability.UnavailabilityOverlapsAssignedShiftException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.DataIntegrityViolationException;
-import com.github.nadjasxxx.gastroshift.shift.InvalidShiftTimeRangeException;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
-import com.github.nadjasxxx.gastroshift.shift.ShiftNotFoundException;
-import com.github.nadjasxxx.gastroshift.shift.OverlappingShiftException;
-import com.github.nadjasxxx.gastroshift.shift.InvalidShiftFilterRangeException;
 import com.github.nadjasxxx.gastroshift.employee.InactiveEmployeeException;
 import com.github.nadjasxxx.gastroshift.employee.DuplicateEmployeeIdentityException;
 import com.github.nadjasxxx.gastroshift.selfservice.EmployeeIdentityNotLinkedException;
@@ -133,6 +134,67 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.NOT_FOUND.value(),
                 HttpStatus.NOT_FOUND.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(
+            InvalidUnavailabilityTimeRangeException.class
+    )
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleInvalidUnavailabilityTimeRange(
+            InvalidUnavailabilityTimeRangeException exception
+    ) {
+        return new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler({
+            OverlappingUnavailabilityException.class,
+            UnavailabilityOverlapsAssignedShiftException.class
+    })
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handleUnavailabilityConflict(
+            RuntimeException exception
+    ) {
+        return new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(
+            EmployeeUnavailabilityNotFoundException.class
+    )
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiError handleEmployeeUnavailabilityNotFound(
+            EmployeeUnavailabilityNotFoundException exception
+    ) {
+        return new ApiError(
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(
+            EmployeeUnavailableForShiftException.class
+    )
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handleEmployeeUnavailableForShift(
+            EmployeeUnavailableForShiftException exception
+    ) {
+        return new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );

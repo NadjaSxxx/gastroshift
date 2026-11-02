@@ -1,5 +1,7 @@
 package com.github.nadjasxxx.gastroshift.shift;
 
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailability;
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityRepository;
 import com.github.nadjasxxx.gastroshift.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,15 +54,22 @@ class ShiftControllerTest {
     @Autowired
     private EmployeeRepository employeeRepository;
 
+    @Autowired
+    private EmployeeUnavailabilityRepository unavailabilityRepository;
+
     @BeforeEach
     void setUp() {
-        shiftRepository.deleteAll();
-        employeeRepository.deleteAll();
+        cleanDatabase();
     }
 
     @AfterEach
     void tearDown() {
+        cleanDatabase();
+    }
+
+    private void cleanDatabase() {
         shiftRepository.deleteAll();
+        unavailabilityRepository.deleteAll();
         employeeRepository.deleteAll();
     }
 
@@ -1031,5 +1040,127 @@ class ShiftControllerTest {
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message")
                         .value("Shift not found: " + unknownShiftId));
+    }
+
+    @Test
+    void shouldRejectAssignmentDuringEmployeeUnavailability()
+            throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+        UUID shiftId = UUID.fromString(
+                "33333333-3333-3333-3333-333333333333"
+        );
+
+        Employee employee = new Employee(
+                employeeId,
+                "Anna",
+                "Nass",
+                "anna.nass@example.com",
+                true
+        );
+        employeeRepository.saveAndFlush(employee);
+
+        unavailabilityRepository.saveAndFlush(
+                new EmployeeUnavailability(
+                        UUID.randomUUID(),
+                        employee,
+                        LocalDateTime.parse(
+                                "2026-11-10T08:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T16:00:00"
+                        ),
+                        null
+                )
+        );
+
+        shiftRepository.saveAndFlush(
+                new Shift(
+                        shiftId,
+                        LocalDateTime.parse(
+                                "2026-11-10T12:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T18:00:00"
+                        ),
+                        "Service",
+                        null
+                )
+        );
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}/employee/{employeeId}",
+                        shiftId,
+                        employeeId
+                ))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Employee is unavailable during shift: "
+                                + employeeId
+                ));
+    }
+
+    @Test
+    void shouldRejectAssignedShiftUpdateDuringUnavailability()
+            throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+        UUID shiftId = UUID.fromString(
+                "33333333-3333-3333-3333-333333333333"
+        );
+
+        Employee employee = new Employee(
+                employeeId,
+                "Anna",
+                "Nass",
+                "anna.nass@example.com",
+                true
+        );
+        employeeRepository.saveAndFlush(employee);
+
+        unavailabilityRepository.saveAndFlush(
+                new EmployeeUnavailability(
+                        UUID.randomUUID(),
+                        employee,
+                        LocalDateTime.parse(
+                                "2026-11-10T08:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T16:00:00"
+                        ),
+                        null
+                )
+        );
+
+        Shift shift = new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-11-10T18:00:00"),
+                LocalDateTime.parse("2026-11-10T22:00:00"),
+                "Service",
+                null
+        );
+        shift.assignEmployee(employee);
+        shiftRepository.saveAndFlush(shift);
+
+        mockMvc.perform(put(
+                        "/api/shifts/{shiftId}",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "startTime": "2026-11-10T12:00:00",
+                              "endTime": "2026-11-10T18:00:00",
+                              "position": "Service",
+                              "notes": null
+                            }
+                            """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Employee is unavailable during shift: "
+                                + employeeId
+                ));
     }
 }

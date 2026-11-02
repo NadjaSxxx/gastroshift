@@ -1,5 +1,6 @@
 package com.github.nadjasxxx.gastroshift.shift;
 
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityRepository;
 import org.springframework.stereotype.Service;
 import com.github.nadjasxxx.gastroshift.employee.Employee;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
@@ -17,12 +18,17 @@ public class ShiftService {
 
     private final EmployeeRepository employeeRepository;
 
+    private final EmployeeUnavailabilityRepository unavailabilityRepository;
+
     public ShiftService(
             ShiftRepository shiftRepository,
-            EmployeeRepository employeeRepository
+            EmployeeRepository employeeRepository,
+            EmployeeUnavailabilityRepository
+                    unavailabilityRepository
     ) {
         this.shiftRepository = shiftRepository;
         this.employeeRepository = employeeRepository;
+        this.unavailabilityRepository = unavailabilityRepository;
     }
 
     public List<Shift> findAll() {
@@ -84,6 +90,12 @@ public class ShiftService {
             throw new OverlappingShiftException(employeeId);
         }
 
+        ensureEmployeeIsAvailable(
+                employeeId,
+                shift.getStartTime(),
+                shift.getEndTime()
+        );
+
         shift.assignEmployee(employee);
 
         return shiftRepository.saveAndFlush(shift);
@@ -126,6 +138,12 @@ public class ShiftService {
             }
         }
 
+        ensureEmployeeIsAvailable(
+                assignedEmployee.getId(),
+                request.startTime(),
+                request.endTime()
+        );
+
         shift.updateDetails(
                 request.startTime(),
                 request.endTime(),
@@ -150,5 +168,24 @@ public class ShiftService {
                 .orElseThrow(() ->
                         new ShiftNotFoundException(shiftId)
                 );
+    }
+
+    private void ensureEmployeeIsAvailable(
+            UUID employeeId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        boolean unavailable =
+                unavailabilityRepository.existsOverlapping(
+                        employeeId,
+                        startTime,
+                        endTime
+                );
+
+        if (unavailable) {
+            throw new EmployeeUnavailableForShiftException(
+                    employeeId
+            );
+        }
     }
 }
