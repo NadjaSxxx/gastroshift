@@ -15,6 +15,7 @@ The project is currently under active development as a portfolio and learning pr
 * Return structured errors for invalid or conflicting requests
 * Link employee records to external identity subjects
 * Create, list, and delete personal unavailability periods
+* Allow managers to view employee unavailability for a requested time range
 
 ### Shifts
 
@@ -272,14 +273,15 @@ The test database is separate from the local development database.
 
 ### Employees
 
-| Method  | Endpoint                               | Description                             |
-|---------|----------------------------------------|-----------------------------------------|
-| `GET`   | `/api/employees`                       | List all employees                      |
-| `POST`  | `/api/employees`                       | Create an employee                      |
-| `PATCH` | `/api/employees/{employeeId}/status`   | Activate or deactivate an employee      |
-| `PUT`   | `/api/employees/{employeeId}`          | Update an existing employee             |
-| `PUT`   | `/api/employees/{employeeId}/identity` | Link an employee to an identity subject |
-| `GET`   | `/api/employees/{employeeId}`          | Get one employee                        |
+| Method  | Endpoint                                                         | Description                                           |
+|---------|------------------------------------------------------------------|-------------------------------------------------------|
+| `GET`   | `/api/employees`                                                 | List all employees                                    |
+| `POST`  | `/api/employees`                                                 | Create an employee                                    |
+| `PATCH` | `/api/employees/{employeeId}/status`                             | Activate or deactivate an employee                    |
+| `PUT`   | `/api/employees/{employeeId}`                                    | Update an existing employee                           |
+| `PUT`   | `/api/employees/{employeeId}/identity`                           | Link an employee to an identity subject               |
+| `GET`   | `/api/employees/{employeeId}`                                    | Get one employee                                      |
+| `GET`   | `/api/employees/{employeeId}/unavailability?from={from}&to={to}` | List employee unavailability overlapping a time range |
 
 ### Shifts
 
@@ -506,6 +508,16 @@ A successful deletion returns `204 No Content`. Employees cannot delete another 
 
 A successful deletion returns `204 No Content`. Deleting an assigned shift removes only the shift; the employee remains stored.
 
+### Get Employee Unavailability as Manager
+
+```http
+GET /api/employees/{employeeId}/unavailability?from=2026-11-10T00:00:00&to=2026-11-11T00:00:00
+```
+
+Both `from` and `to` are required, and `to` must be after `from`. Only unavailability periods overlapping the requested range are returned. Results are ordered by start time.
+
+This endpoint requires the `MANAGER` role.
+
 ## HTTP Status Codes
 
 | Status             | Meaning                                                         |
@@ -561,7 +573,7 @@ src
 │   │       ├── employee
 │   │       ├── security
 │   │       ├── selfservice
-│   │       └── shift
+│   │       ├── shift
 │   │       └── unavailability
 │   └── resources
 │       └── db
@@ -572,7 +584,7 @@ src
             ├── employee
             ├── selfservice
             ├── security
-            └── shift
+            ├── shift
             └── unavailability
 ```
 
@@ -588,7 +600,9 @@ The code is organized by business domain:
 
 ## Current Status
 
-GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, manager-only authorization for the management API, employee self-service access to assigned shifts and possibility for employees to manage times of unavailability (including preventing overlap with assigned shifts). It does not yet include a frontend.
+GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, manager-only authorization for the management API, employee self-service access to assigned shifts and possibility for employees to manage times of unavailability (including preventing overlap with assigned shifts).
+Managers are able to view periods of unavailability of employees with time filters.
+It does not yet include a frontend.
 
 Planned improvements include:
 

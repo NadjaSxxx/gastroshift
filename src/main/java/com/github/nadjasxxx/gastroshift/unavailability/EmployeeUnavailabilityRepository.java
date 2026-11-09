@@ -36,4 +36,19 @@ public interface EmployeeUnavailabilityRepository
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
+
+    @Query("""
+        SELECT unavailability
+        FROM EmployeeUnavailability unavailability
+        WHERE unavailability.employee.id = :employeeId
+          AND unavailability.startTime < :to
+          AND unavailability.endTime > :from
+        ORDER BY unavailability.startTime
+        """)
+    List<EmployeeUnavailability>
+    findOverlappingRangeForEmployee(
+            @Param("employeeId") UUID employeeId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 }

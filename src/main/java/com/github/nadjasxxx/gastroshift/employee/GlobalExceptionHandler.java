@@ -2,10 +2,7 @@ package com.github.nadjasxxx.gastroshift.employee;
 
 
 import com.github.nadjasxxx.gastroshift.shift.*;
-import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityNotFoundException;
-import com.github.nadjasxxx.gastroshift.unavailability.InvalidUnavailabilityTimeRangeException;
-import com.github.nadjasxxx.gastroshift.unavailability.OverlappingUnavailabilityException;
-import com.github.nadjasxxx.gastroshift.unavailability.UnavailabilityOverlapsAssignedShiftException;
+import com.github.nadjasxxx.gastroshift.unavailability.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -195,6 +192,21 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.CONFLICT.value(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(
+            InvalidUnavailabilityFilterRangeException.class
+    )
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleInvalidUnavailabilityFilterRange(
+            InvalidUnavailabilityFilterRangeException exception
+    ) {
+        return new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );
