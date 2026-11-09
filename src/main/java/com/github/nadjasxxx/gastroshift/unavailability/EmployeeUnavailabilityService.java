@@ -1,10 +1,12 @@
 package com.github.nadjasxxx.gastroshift.unavailability;
 
 import com.github.nadjasxxx.gastroshift.employee.Employee;
+import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
 import com.github.nadjasxxx.gastroshift.selfservice.EmployeeIdentityNotLinkedException;
 import com.github.nadjasxxx.gastroshift.shift.ShiftRepository;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
 
 import java.util.List;
 import java.util.UUID;
@@ -116,6 +118,35 @@ public class EmployeeUnavailabilityService {
                 .findByIdentitySubject(identitySubject)
                 .orElseThrow(
                         EmployeeIdentityNotLinkedException::new
+                );
+    }
+
+    public List<EmployeeUnavailability> findForEmployee(
+            UUID employeeId,
+            LocalDateTime from,
+            LocalDateTime to
+    ) {
+        if (from == null || to == null) {
+            throw new InvalidUnavailabilityFilterRangeException(
+                    "Both from and to must be provided"
+            );
+        }
+
+        if (!to.isAfter(from)) {
+            throw new InvalidUnavailabilityFilterRangeException(
+                    "To must be after from"
+            );
+        }
+
+        if (!employeeRepository.existsById(employeeId)) {
+            throw new EmployeeNotFoundException(employeeId);
+        }
+
+        return unavailabilityRepository
+                .findOverlappingRangeForEmployee(
+                        employeeId,
+                        from,
+                        to
                 );
     }
 }

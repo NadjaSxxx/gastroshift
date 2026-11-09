@@ -22,7 +22,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailability;
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,8 +44,12 @@ class EmployeeControllerTest {
     @Autowired
     private EmployeeRepository employeeRepository;
 
+    @Autowired
+    private EmployeeUnavailabilityRepository unavailabilityRepository;
+
     @BeforeEach
     void setUp() {
+        unavailabilityRepository.deleteAll();
         employeeRepository.deleteAll();
 
         employeeRepository.saveAll(List.of(
@@ -580,5 +587,184 @@ class EmployeeControllerTest {
                         "Identity subject 'keycloak-user-123' " +
                                 "is already linked to an employee"
                 ));
+    }
+
+    @Test
+    void shouldReturnEmployeeUnavailabilityOverlappingRange()
+            throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+
+        Employee employee = employeeRepository
+                .findById(employeeId)
+                .orElseThrow();
+
+        unavailabilityRepository.saveAllAndFlush(List.of(
+                new EmployeeUnavailability(
+                        UUID.fromString(
+                                "33333333-3333-3333-3333-333333333333"
+                        ),
+                        employee,
+                        LocalDateTime.parse(
+                                "2026-11-10T08:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T10:00:00"
+                        ),
+                        null
+                ),
+                new EmployeeUnavailability(
+                        UUID.fromString(
+                                "44444444-4444-4444-4444-444444444444"
+                        ),
+                        employee,
+                        LocalDateTime.parse(
+                                "2026-11-10T09:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T11:00:00"
+                        ),
+                        "Appointment"
+                ),
+                new EmployeeUnavailability(
+                        UUID.fromString(
+                                "55555555-5555-5555-5555-555555555555"
+                        ),
+                        employee,
+                        LocalDateTime.parse(
+                                "2026-11-10T14:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T16:00:00"
+                        ),
+                        null
+                ),
+                new EmployeeUnavailability(
+                        UUID.fromString(
+                                "66666666-6666-6666-6666-666666666666"
+                        ),
+                        employee,
+                        LocalDateTime.parse(
+                                "2026-11-10T18:00:00"
+                        ),
+                        LocalDateTime.parse(
+                                "2026-11-10T20:00:00"
+                        ),
+                        null
+                )
+        ));
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}/unavailability",
+                        employeeId
+                )
+                        .param(
+                                "from",
+                                "2026-11-10T10:00:00"
+                        )
+                        .param(
+                                "to",
+                                "2026-11-10T18:00:00"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(
+                        "44444444-4444-4444-4444-444444444444"
+                ))
+                .andExpect(jsonPath("$[1].id").value(
+                        "55555555-5555-5555-5555-555555555555"
+                ));
+    }
+
+    @Test
+    void shouldRejectMissingUnavailabilityFilterParameter()
+            throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}/unavailability",
+                        employeeId
+                )
+                        .param(
+                                "from",
+                                "2026-11-10T10:00:00"
+                        ))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Both from and to must be provided"
+                ));
+    }
+
+    @Test
+    void shouldRejectInvalidUnavailabilityFilterRange()
+            throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}/unavailability",
+                        employeeId
+                )
+                        .param(
+                                "from",
+                                "2026-11-10T18:00:00"
+                        )
+                        .param(
+                                "to",
+                                "2026-11-10T10:00:00"
+                        ))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "To must be after from"
+                ));
+    }
+
+    @Test
+    void shouldReturnNotFoundForUnknownEmployeeUnavailability()
+            throws Exception {
+        UUID unknownEmployeeId = UUID.fromString(
+                "99999999-9999-9999-9999-999999999999"
+        );
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}/unavailability",
+                        unknownEmployeeId
+                )
+                        .param(
+                                "from",
+                                "2026-11-10T10:00:00"
+                        )
+                        .param(
+                                "to",
+                                "2026-11-10T18:00:00"
+                        ))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "EMPLOYEE")
+    void shouldRejectEmployeeAccessToManagerUnavailabilityView()
+            throws Exception {
+        UUID employeeId = UUID.fromString(
+                "11111111-1111-1111-1111-111111111111"
+        );
+
+        mockMvc.perform(get(
+                        "/api/employees/{employeeId}/unavailability",
+                        employeeId
+                )
+                        .param(
+                                "from",
+                                "2026-11-10T10:00:00"
+                        )
+                        .param(
+                                "to",
+                                "2026-11-10T18:00:00"
+                        ))
+                .andExpect(status().isForbidden());
     }
 }

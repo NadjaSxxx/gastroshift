@@ -1,26 +1,28 @@
 package com.github.nadjasxxx.gastroshift.employee;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.GetMapping;
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityService;
+import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityResponse;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
+
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/employees")
 public class EmployeeController {
-    private final EmployeeService employeeService;
 
-    public EmployeeController(EmployeeService employeeService) {
+    private final EmployeeService employeeService;
+    private final EmployeeUnavailabilityService unavailabilityService;
+
+    public EmployeeController(EmployeeService employeeService,
+                              EmployeeUnavailabilityService unavailabilityService) {
+
         this.employeeService = employeeService;
+        this.unavailabilityService = unavailabilityService;
     }
 
     @GetMapping
@@ -82,6 +84,32 @@ public class EmployeeController {
         );
 
         return EmployeeResponse.from(employee);
+    }
+
+    @GetMapping("/{employeeId}/unavailability")
+    public List<EmployeeUnavailabilityResponse>
+    findEmployeeUnavailability(
+            @PathVariable UUID employeeId,
+            @RequestParam(required = false)
+            @DateTimeFormat(
+                    iso = DateTimeFormat.ISO.DATE_TIME
+            )
+            LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(
+                    iso = DateTimeFormat.ISO.DATE_TIME
+            )
+            LocalDateTime to
+    ) {
+        return unavailabilityService
+                .findForEmployee(
+                        employeeId,
+                        from,
+                        to
+                )
+                .stream()
+                .map(EmployeeUnavailabilityResponse::from)
+                .toList();
     }
 
 }
