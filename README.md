@@ -42,6 +42,8 @@ The project is currently under active development as a portfolio and learning pr
 * JWT validation with Keycloak
 * Dedicated API response DTOs
 * Role-based authorization for management endpoints
+* OpenAPI 3 documentation generated with springdoc-openapi
+* Interactive Swagger UI with Keycloak authentication using Authorization Code Flow and PKCE
 
 ## Technology Stack
 
@@ -59,6 +61,8 @@ The project is currently under active development as a portfolio and learning pr
 * Testcontainers
 * Spring Security
 * Keycloak 26.7.3
+* springdoc-openapi
+* Swagger UI
 
 ## Requirements
 
@@ -163,6 +167,15 @@ The realm publishes its OpenID Connect configuration at:
 http://localhost:8080/realms/gastroshift/.well-known/openid-configuration
 ```
 
+### Configuring technical test clients
+
+Create the following realm roles:
+
+* `MANAGER`
+* `EMPLOYEE`
+
+The `MANAGER` role grants access to the management API. The `EMPLOYEE` role grants access to employee self-service endpoints.
+
 Inside the `gastroshift` realm, create an OpenID Connect client with the following settings:
 
 * Client ID: `gastroshift-api-test-client`
@@ -172,27 +185,68 @@ Inside the `gastroshift` realm, create an OpenID Connect client with the followi
 * Direct access grants: disabled
 * Service accounts roles: enabled
 
-Root URL, Home URL, redirect URIs, and web origins can remain empty because this technical client does not use a browser-based login flow.
+Root URL, Home URL, redirect URIs and web origins can remain empty because this technical client does not use a browser-based login flow.
 
 The client secret is available on the client's **Credentials** tab. Treat it as a password and do not commit it to Git.
 
-Create a realm role named:
+Open `gastroshift-api-test-client`, select **Service account roles** and assign the `MANAGER` realm role to its service account.
+
+Create a second technical OpenID Connect client named:
 
 ```text
-MANAGER
+gastroshift-employee-test-client
 ```
-Open the gastroshift-api-test-client, select Service account roles, and assign the MANAGER realm role to its service account.
 
-The existing /api/** endpoints represent the management API and require this role.
+Use the same technical-client configuration and assign only the `EMPLOYEE` realm role to its service account.
 
-Create another realm role named:
+These clients use the Client Credentials flow and represent technical clients rather than interactive users.
 
-```text
-EMPLOYEE
+### Configuring Swagger UI authentication
+
+Create an additional public OpenID Connect client for interactive Swagger UI authentication:
+
+* Client ID: `gastroshift-swagger`
+* Client authentication: disabled
+* Authorization: disabled
+* Standard flow: enabled
+* Direct access grants: disabled
+* Implicit flow: disabled
+* Service accounts roles: disabled
+* Require PKCE: enabled
+* PKCE method: `S256`
+* Require DPoP bound tokens: disabled
+
+Configure the client URLs as follows:
+
+* Root URL: `http://localhost:8081`
+* Home URL: `http://localhost:8081/swagger-ui/index.html`
+* Valid redirect URI: `http://localhost:8081/swagger-ui/oauth2-redirect.html`
+* Valid post logout redirect URI: `http://localhost:8081/swagger-ui/index.html`
+* Web origin: `http://localhost:8081`
+
+This is a public browser client and does not require a client secret.
+
+To test both authorization levels interactively, create regular Keycloak users and assign the appropriate realm role:
+
+* a manager user with the `MANAGER` role
+* an employee user with the `EMPLOYEE` role
+
+Use separate passwords for administrative and demo users. Do not commit user passwords or client secrets to the repository.
+
+For employee self-service, link the Keycloak user's stable user ID to an existing GastroShift employee through:
+
+```http
+PUT /api/employees/{employeeId}/identity
 ```
-Create a second technical OpenID Connect client named gastroshift-employee-test-client with client authentication and service accounts enabled. Assign only the EMPLOYEE realm role to its service account.
 
-The MANAGER role grants access to the management API. The EMPLOYEE role grants access to employee self-service endpoints.
+```JSON
+{
+"identitySubject": "KEYCLOAK_USER_ID"
+}
+```
+
+The employeeId path parameter is the employee UUID stored in PostgreSQL. identitySubject is the stable Keycloak user ID represented by the sub claim in access tokens.
+
 
 ## Running the Application
 
@@ -216,11 +270,43 @@ http://localhost:8081
 
 Flyway applies pending database migrations automatically during startup. Hibernate validates that the entity model matches the database schema.
 
+## Exploring the API with Swagger UI
+
+After starting the application, open the interactive API documentation at:
+
+```text
+http://localhost:8081/swagger-ui/index.html
+```
+
+The generated OpenAPI document is available at:
+
+```text
+http://localhost:8081/v3/api-docs
+```
+
+Swagger UI displays the available endpoints, request schemas, response schemas and validation requirements.
+
+To call protected endpoints:
+
+1. Select **Authorize**.
+2. Select the `openid` scope.
+3. Sign in through the `gastroshift` Keycloak realm.
+4. Execute an endpoint using **Try it out**.
+
+Swagger UI uses Authorization Code Flow with PKCE. The access token is automatically included in protected requests.
+
+Users with the `MANAGER` role can access the management endpoints below `/api/**`. Users with the `EMPLOYEE` role can access the self-service endpoints below `/api/me/**`.
+
+Swagger UI is an interactive developer interface for exploring the REST API. It is not an end-user frontend for restaurant managers or employees.
+
+
 ## Calling the Authenticated API
 
-All endpoints below `/api` require a valid access token issued by the `gastroshift` Keycloak realm and containing the `MANAGER` realm role.
+All endpoints below `/api` require a valid access token issued by the `gastroshift` Keycloak realm.
 
-For local testing, request an access token in PowerShell. Replace the placeholder with the client secret from Keycloak:
+Endpoints below `/api/me/**` require the `EMPLOYEE` realm role. The remaining management endpoints below `/api/**` require the `MANAGER` realm role.
+
+For local command-line testing, request a manager access token in PowerShell. Replace the placeholder with the client secret from Keycloak:
 
 ```powershell
 $tokenResponse = Invoke-RestMethod `
@@ -236,7 +322,7 @@ $tokenResponse = Invoke-RestMethod `
 $accessToken = $tokenResponse.access_token
 ```
 
-Send the token in the HTTP `Authorization` header:
+Send the access token in the HTTP `Authorization` header:
 
 ```powershell
 Invoke-RestMethod `
@@ -247,7 +333,7 @@ Invoke-RestMethod `
     }
 ```
 
-Requests without a valid token receive HTTP status `401 Unauthorized`. Authenticated requests without the `MANAGER` role receive HTTP status `403 Forbidden`.
+Requests without a valid access token receive HTTP status `401 Unauthorized`. Authenticated requests without the required role receive HTTP status `403 Forbidden`.
 
 ## Running the Tests
 
@@ -596,7 +682,6 @@ The code is organized by business domain:
 * `selfservice` contains endpoints and services for the currently authenticated employee.
 * `unavailability` contains employee unavailability entities, repositories, services, controllers, DTOs, and exceptions.
 
-## Current Status
 
 ## Current Status
 
