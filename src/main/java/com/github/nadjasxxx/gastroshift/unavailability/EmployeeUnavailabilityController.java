@@ -1,5 +1,7 @@
 package com.github.nadjasxxx.gastroshift.unavailability;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,6 +20,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/me/unavailability")
+@Tag(
+        name = "Employee Unavailability",
+        description = "Manage employee unavailability periods"
+)
 public class EmployeeUnavailabilityController {
 
     private final EmployeeUnavailabilityService
@@ -30,6 +36,15 @@ public class EmployeeUnavailabilityController {
         this.unavailabilityService = unavailabilityService;
     }
 
+    @Operation(
+            summary = "List my unavailability periods",
+            description = """
+                Returns all unavailability periods belonging to the
+                authenticated employee. The employee is identified through
+                the subject claim of the access token. Requires the EMPLOYEE
+                role and a linked employee identity.
+                """
+    )
     @GetMapping
     public List<EmployeeUnavailabilityResponse> findOwn(
             @AuthenticationPrincipal Jwt jwt
@@ -41,6 +56,16 @@ public class EmployeeUnavailabilityController {
                 .toList();
     }
 
+    @Operation(
+            summary = "Create my unavailability period",
+            description = """
+                Creates an unavailability period for the authenticated
+                employee. The end time must be after the start time. The
+                period must not overlap another unavailability period or an
+                already assigned shift. Requires the EMPLOYEE role and a
+                linked employee identity.
+                """
+    )
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public EmployeeUnavailabilityResponse createOwn(
@@ -57,6 +82,15 @@ public class EmployeeUnavailabilityController {
         return EmployeeUnavailabilityResponse.from(created);
     }
 
+    @Operation(
+            summary = "Delete my unavailability period",
+            description = """
+                Deletes an unavailability period belonging to the
+                authenticated employee. An employee cannot delete another
+                employee's unavailability period. Requires the EMPLOYEE role
+                and a linked employee identity.
+                """
+    )
     @DeleteMapping("/{unavailabilityId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteOwn(
