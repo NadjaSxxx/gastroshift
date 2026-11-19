@@ -18,15 +18,19 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.3
-    command: start-dev
+    command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_MANAGER_DEMO_PASSWORD: ${KEYCLOAK_MANAGER_DEMO_PASSWORD}
+      KEYCLOAK_EMPLOYEE_DEMO_PASSWORD: ${KEYCLOAK_EMPLOYEE_DEMO_PASSWORD}
+      # Temporary mitigation for CVE-2026-114938 until the image contains a patched JDK
       JAVA_OPTS_APPEND: "-XX:-UseBASE64Intrinsics"
     ports:
       - "8080:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
+      - ./keycloak:/opt/keycloak/data/import:ro
 
 volumes:
   postgres-data:
