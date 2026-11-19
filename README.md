@@ -68,15 +68,87 @@ The project is currently under active development as a portfolio and learning pr
 
 Install the following tools before running the project:
 
-* Java 21
+* Java 21 with current security updates
 * Docker Desktop
 * Git
 
 A separate Maven installation is not required because the project includes the Maven Wrapper.
 
+
+## Quick Start for Reviewers
+
+Clone the repository and enter the project directory:
+
+```bash
+git clone https://github.com/NadjaSxxx/gastroshift.git
+cd gastroshift
+```
+
+Create the local environment file.
+
+### Windows
+
+```powershell
+Copy-Item .env.example .env
+```
+
+### macOS and Linux
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and replace every `change-me` value with a local password. Use different passwords for the Keycloak administrator, manager demo user and employee demo user.
+
+Start PostgreSQL and Keycloak:
+
+```bash
+docker compose up -d
+```
+
+Check the container status:
+
+```bash
+docker compose ps
+```
+
+During its first startup, Keycloak automatically imports the `gastroshift` realm, its roles, the Swagger UI client and the demo users.
+
+Start the application.
+
+### Windows
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+### macOS and Linux
+
+```bash
+./mvnw spring-boot:run
+```
+
+Open Swagger UI:
+
+```text
+http://localhost:8081/swagger-ui/index.html
+```
+
+Select **Authorize**, enable the `openid` scope and sign in as:
+
+```text
+manager-demo
+```
+
+Use the password configured through `KEYCLOAK_MANAGER_DEMO_PASSWORD` in `.env`.
+
+The manager demo user can create employees, shifts and other application data through Swagger UI. No client secret is required for the browser-based login.
+
 ## Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root by copying `.env.example`.
+
+The file contains the following configuration:
 
 ```properties
 POSTGRES_DB=gastroshift
@@ -84,31 +156,38 @@ POSTGRES_USER=gastroshift
 POSTGRES_PASSWORD=change-me
 KEYCLOAK_ADMIN_USERNAME=admin
 KEYCLOAK_ADMIN_PASSWORD=change-me
+KEYCLOAK_MANAGER_DEMO_PASSWORD=change-me
+KEYCLOAK_EMPLOYEE_DEMO_PASSWORD=change-me
 ```
 
-Do not commit `.env` to Git.
+Replace all `change-me` values before starting the development environment.
 
-The application imports this file through:
+Use separate passwords for:
+
+* PostgreSQL
+* the Keycloak bootstrap administrator
+* the manager demo user
+* the employee demo user
+
+Do not commit `.env` to Git. The committed `.env.example` file contains placeholders only.
+
+The application imports `.env` through:
 
 ```properties
 spring.config.import=optional:file:.env[.properties]
 ```
 
-The API runs on:
+The local services use the following addresses:
 
-```text
-http://localhost:8081
-```
-
-PostgreSQL is exposed locally on port `5432`.
-
-Keycloak is available locally on:
-
-```text
-http://localhost:8080
-```
+| Service         | Address                                       |
+|-----------------|-----------------------------------------------|
+| GastroShift API | `http://localhost:8081`                       |
+| Swagger UI      | `http://localhost:8081/swagger-ui/index.html` |
+| Keycloak        | `http://localhost:8080`                       |
+| PostgreSQL      | `localhost:5432`                              |
 
 The Keycloak administration console uses the bootstrap administrator credentials configured in `.env`.
+
 
 ## Running the Development Infrastructure
 
@@ -117,6 +196,7 @@ Start PostgreSQL and Keycloak:
 ```bash
 docker compose up -d
 ```
+On the first startup of a fresh Keycloak data volume, Keycloak imports `keycloak/gastroshift-realm.json`. The import creates the realm, application roles, Swagger UI client and local demo users. If the realm already exists, Keycloak skips the import and preserves the existing configuration.
 
 Check their status:
 
@@ -147,36 +227,105 @@ docker compose down -v
 
 ## Configuring Keycloak
 
-Open the Keycloak administration console:
+Keycloak automatically imports the local development configuration from:
 
 ```text
-http://localhost:8080
+keycloak/gastroshift-realm.json
 ```
 
-Sign in with the bootstrap administrator credentials configured in `.env`.
+The import runs when Keycloak starts with a fresh data volume. If the `gastroshift` realm already exists, Keycloak skips the import and preserves the existing realm.
 
-Create a realm named:
-
-```text
-gastroshift
-```
-
-The realm publishes its OpenID Connect configuration at:
+The OpenID Connect configuration is published at:
 
 ```text
 http://localhost:8080/realms/gastroshift/.well-known/openid-configuration
 ```
 
-### Configuring technical test clients
+The Keycloak administration console is available at:
 
-Create the following realm roles:
+```text
+http://localhost:8080
+```
 
-* `MANAGER`
-* `EMPLOYEE`
+Sign in to the administration console with the bootstrap administrator credentials configured in `.env`.
 
-The `MANAGER` role grants access to the management API. The `EMPLOYEE` role grants access to employee self-service endpoints.
+### Imported development configuration
 
-Inside the `gastroshift` realm, create an OpenID Connect client with the following settings:
+The realm import creates:
+
+* the `gastroshift` realm
+* the `MANAGER` realm role
+* the `EMPLOYEE` realm role
+* the public `gastroshift-swagger` client
+* the `manager-demo` user
+* the `employee-demo` user
+
+The Swagger client uses Authorization Code Flow with PKCE and does not require a client secret.
+
+The demo identities are configured as follows:
+
+| Username | Realm role | Password source | Keycloak subject |
+|---|---|---|---|
+| `manager-demo` | `MANAGER` | `KEYCLOAK_MANAGER_DEMO_PASSWORD` | `10000000-0000-0000-0000-000000000001` |
+| `employee-demo` | `EMPLOYEE` | `KEYCLOAK_EMPLOYEE_DEMO_PASSWORD` | `10000000-0000-0000-0000-000000000002` |
+
+The actual passwords are read from the local `.env` file during the initial realm import. Passwords and client secrets are not stored in the committed realm file.
+
+### Linking the employee demo identity
+
+The imported `employee-demo` user is initially not linked to an employee in the GastroShift database.
+
+First, sign in to Swagger UI as `manager-demo` and create an employee through:
+
+```http
+POST /api/employees
+```
+
+Copy the returned employee ID. Then call:
+
+```http
+PUT /api/employees/{employeeId}/identity
+Content-Type: application/json
+```
+
+Use the database employee ID as the `employeeId` path parameter and submit:
+
+```json
+{
+  "identitySubject": "10000000-0000-0000-0000-000000000002"
+}
+```
+
+After the identity is linked, sign in as `employee-demo` to use the endpoints below:
+
+```text
+/api/me/**
+```
+
+The database employee ID and the Keycloak subject are different identifiers:
+
+* the employee ID identifies the business record in PostgreSQL
+* the Keycloak subject identifies the authenticated user
+
+### Existing Keycloak data volumes
+
+The startup import does not overwrite an existing `gastroshift` realm. This protects manually created users, clients and other local configuration.
+
+Changing `keycloak/gastroshift-realm.json` therefore does not modify a realm that has already been imported. Testing a fresh import requires a new Keycloak data volume.
+
+Do not use the following command merely to repeat the import:
+
+```bash
+docker compose down -v
+```
+
+It deletes both the local Keycloak configuration and the local PostgreSQL data.
+
+### Optional technical test clients
+
+The imported Swagger client is sufficient for interactive browser testing. The following technical clients are optional and are only required for testing the API through the Client Credentials flow.
+
+Create a confidential OpenID Connect client with:
 
 * Client ID: `gastroshift-api-test-client`
 * Client authentication: enabled
@@ -185,67 +334,19 @@ Inside the `gastroshift` realm, create an OpenID Connect client with the followi
 * Direct access grants: disabled
 * Service accounts roles: enabled
 
-Root URL, Home URL, redirect URIs and web origins can remain empty because this technical client does not use a browser-based login flow.
+Assign the `MANAGER` realm role to its service account.
 
 The client secret is available on the client's **Credentials** tab. Treat it as a password and do not commit it to Git.
 
-Open `gastroshift-api-test-client`, select **Service account roles** and assign the `MANAGER` realm role to its service account.
-
-Create a second technical OpenID Connect client named:
+To test employee endpoints through a service account, create a second technical client named:
 
 ```text
 gastroshift-employee-test-client
 ```
 
-Use the same technical-client configuration and assign only the `EMPLOYEE` realm role to its service account.
+Use the same technical-client settings and assign only the `EMPLOYEE` realm role to its service account.
 
-These clients use the Client Credentials flow and represent technical clients rather than interactive users.
-
-### Configuring Swagger UI authentication
-
-Create an additional public OpenID Connect client for interactive Swagger UI authentication:
-
-* Client ID: `gastroshift-swagger`
-* Client authentication: disabled
-* Authorization: disabled
-* Standard flow: enabled
-* Direct access grants: disabled
-* Implicit flow: disabled
-* Service accounts roles: disabled
-* Require PKCE: enabled
-* PKCE method: `S256`
-* Require DPoP bound tokens: disabled
-
-Configure the client URLs as follows:
-
-* Root URL: `http://localhost:8081`
-* Home URL: `http://localhost:8081/swagger-ui/index.html`
-* Valid redirect URI: `http://localhost:8081/swagger-ui/oauth2-redirect.html`
-* Valid post logout redirect URI: `http://localhost:8081/swagger-ui/index.html`
-* Web origin: `http://localhost:8081`
-
-This is a public browser client and does not require a client secret.
-
-To test both authorization levels interactively, create regular Keycloak users and assign the appropriate realm role:
-
-* a manager user with the `MANAGER` role
-* an employee user with the `EMPLOYEE` role
-
-Use separate passwords for administrative and demo users. Do not commit user passwords or client secrets to the repository.
-
-For employee self-service, link the Keycloak user's stable user ID to an existing GastroShift employee through:
-
-```http
-PUT /api/employees/{employeeId}/identity
-```
-
-```JSON
-{
-"identitySubject": "KEYCLOAK_USER_ID"
-}
-```
-
-The employeeId path parameter is the employee UUID stored in PostgreSQL. identitySubject is the stable Keycloak user ID represented by the sub claim in access tokens.
+Technical clients represent applications or automated processes. The imported demo users represent people signing in interactively through Swagger UI.
 
 
 ## Running the Application
@@ -272,7 +373,7 @@ Flyway applies pending database migrations automatically during startup. Hiberna
 
 ## Exploring the API with Swagger UI
 
-After starting the application, open the interactive API documentation at:
+After starting the development infrastructure and the application, open:
 
 ```text
 http://localhost:8081/swagger-ui/index.html
@@ -284,23 +385,74 @@ The generated OpenAPI document is available at:
 http://localhost:8081/v3/api-docs
 ```
 
-Swagger UI displays the available endpoints, request schemas, response schemas and validation requirements.
+Swagger UI displays the available endpoints, request schemas, response schemas, validation requirements and important business rules.
 
-To call protected endpoints:
+### Testing manager endpoints
 
-1. Select **Authorize**.
-2. Select the `openid` scope.
-3. Sign in through the `gastroshift` Keycloak realm.
-4. Execute an endpoint using **Try it out**.
+Select **Authorize**, enable the `openid` scope and sign in with:
 
-Swagger UI uses Authorization Code Flow with PKCE. The access token is automatically included in protected requests.
+```text
+Username: manager-demo
+Password: value of KEYCLOAK_MANAGER_DEMO_PASSWORD from .env
+```
 
-Users with the `MANAGER` role can access the management endpoints below `/api/**`. Users with the `EMPLOYEE` role can access the self-service endpoints below `/api/me/**`.
+The manager user can access management endpoints such as:
+
+```text
+/api/employees
+/api/shifts
+/api/employees/{employeeId}/unavailability
+```
+
+Swagger UI automatically includes the access token in protected requests.
+
+### Testing employee self-service
+
+Before testing employee self-service, link `employee-demo` to an employee record as described in `Linking the employee demo identity`.
+
+Sign out of the manager authorization and sign in with:
+
+```text
+Username: employee-demo
+Password: value of KEYCLOAK_EMPLOYEE_DEMO_PASSWORD from .env
+```
+
+The employee user can access:
+
+```text
+/api/me/shifts
+/api/me/unavailability
+```
+
+The employee user cannot access management endpoints. A request to `/api/employees` is expected to return:
+
+```text
+403 Forbidden
+```
+
+If Keycloak automatically reuses the previous user's browser session, use a private browser window or a separate browser for the second user.
+
+### Authentication behavior
+
+Swagger UI uses Authorization Code Flow with PKCE. The public browser client does not use a client secret.
+
+Requests without a valid access token receive:
+
+```text
+401 Unauthorized
+```
+
+Authenticated requests without the required realm role receive:
+
+```text
+403 Forbidden
+```
 
 Swagger UI is an interactive developer interface for exploring the REST API. It is not an end-user frontend for restaurant managers or employees.
 
-
 ## Calling the Authenticated API
+
+The following command-line example is optional. It requires the manually configured `gastroshift-api-test-client` described under `Optional technical test clients`. The automatically imported `gastroshift-swagger` client should be used for interactive browser testing.
 
 All endpoints below `/api` require a valid access token issued by the `gastroshift` Keycloak realm.
 
@@ -555,6 +707,8 @@ Content-Type: application/json
 
 ### Delete a Shift
 
+A successful deletion returns `204 No Content`. Deleting an assigned shift removes only the shift; the employee remains stored.
+
 ```http
 DELETE /api/shifts/{shiftId}
 ```
@@ -591,8 +745,6 @@ DELETE /api/me/unavailability/{unavailabilityId}
 ```
 
 A successful deletion returns `204 No Content`. Employees cannot delete another employee's unavailability.
-
-A successful deletion returns `204 No Content`. Deleting an assigned shift removes only the shift; the employee remains stored.
 
 ### Get Employee Unavailability as Manager
 
@@ -652,51 +804,74 @@ Existing migrations must not be modified after they have been applied. Schema ch
 ## Project Structure
 
 ```text
-src
-├── main
-│   ├── java
-│   │   └── com.github.nadjasxxx.gastroshift
-│   │       ├── employee
-│   │       ├── security
-│   │       ├── selfservice
-│   │       ├── shift
-│   │       └── unavailability
-│   └── resources
-│       └── db
-│           └── migration
-└── test
-    └── java
-        └── com.github.nadjasxxx.gastroshift
-            ├── employee
-            ├── selfservice
-            ├── security
-            ├── shift
-            └── unavailability
+keycloak/
+  gastroshift-realm.json
+
+src/
+  main/
+    java/
+      com.github.nadjasxxx.gastroshift/
+        documentation/
+        employee/
+        security/
+        selfservice/
+        shift/
+        unavailability/
+    resources/
+      db/
+        migration/
+      application.properties
+
+  test/
+    java/
+      com.github.nadjasxxx.gastroshift/
+        employee/
+        security/
+        selfservice/
+        shift/
+        unavailability/
 ```
 
 The code is organized by business domain:
 
-* `employee` contains employee-related entities, repositories, services, controllers, requests, and exceptions.
-* `security` contains the Spring Security and OAuth 2.0 resource server configuration.
-* `shift` contains shift-related entities, repositories, services, controllers, requests, and exceptions.
+* `documentation` contains the OpenAPI and Swagger UI configuration.
+* `employee` contains employee-related entities, repositories, services, controllers, requests, responses and exceptions.
+* `security` contains the Spring Security, JWT and Keycloak role-mapping configuration.
 * `selfservice` contains endpoints and services for the currently authenticated employee.
-* `unavailability` contains employee unavailability entities, repositories, services, controllers, DTOs, and exceptions.
-
+* `shift` contains shift-related entities, repositories, services, controllers, requests, responses and exceptions.
+* `unavailability` contains employee unavailability entities, repositories, services, controllers, requests, responses and exceptions.
+* `db/migration` contains the versioned Flyway database migrations.
+* `keycloak/gastroshift-realm.json` contains the reproducible local Keycloak development configuration.
 
 ## Current Status
 
-GastroShift currently provides a tested backend API with PostgreSQL persistence, dedicated response DTOs, Keycloak-based authentication, manager-only authorization for the management API, employee self-service access to assigned shifts and possibility for employees to manage times of unavailability (including preventing overlap with assigned shifts).
-Managers are able to view periods of unavailability of employees with time filters.
-It does not yet include a frontend.
+GastroShift currently provides a tested REST backend for managing employees, shifts, employee assignments and employee unavailability.
+
+The application currently supports:
+
+* PostgreSQL persistence with Flyway database migrations
+* employee creation, updates, status management and identity linking
+* shift creation, updates, deletion and employee assignment
+* prevention of overlapping shifts
+* prevention of assignments during employee unavailability
+* manager access to employee unavailability with time-range filtering
+* employee self-service access to assigned shifts
+* employee self-service management of unavailability periods
+* Keycloak authentication with `MANAGER` and `EMPLOYEE` realm roles
+* OpenAPI documentation and authenticated Swagger UI
+* reproducible local Keycloak configuration with automatically imported demo users
+* integration tests with MockMvc and Testcontainers
+* automated builds and tests with GitHub Actions
+
+GastroShift does not yet include an end-user frontend or a public deployment.
 
 Planned improvements include:
 
-* restricting employees to their own shifts,
-* recurring weekly availability,
-* manager views for employee availability,
-* weekly schedule views,
-* a web frontend,
-* deployment and production configuration.
+* recurring weekly availability
+* weekly schedule views
+* automatic creation of optional demo business data
+* a web frontend for managers and employees
+* deployment and production configuration
 
 ## License
 
