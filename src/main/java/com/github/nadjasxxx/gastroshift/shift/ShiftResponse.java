@@ -11,6 +11,7 @@ public record ShiftResponse(
         LocalDateTime endTime,
         String position,
         String notes,
+        ShiftStatus status,
         EmployeeResponse employee
 ) {
 
@@ -27,6 +28,7 @@ public record ShiftResponse(
             shift.getEndTime(),
             shift.getPosition(),
             shift.getNotes(),
+            shift.getStatus(),
             employeeResponse
         );
 

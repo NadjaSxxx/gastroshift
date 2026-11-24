@@ -154,6 +154,20 @@ public class ShiftService {
         return shiftRepository.saveAndFlush(shift);
     }
 
+    public Shift updateStatus(
+            UUID shiftId,
+            UpdateShiftStatusRequest request
+    ) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() ->
+                        new ShiftNotFoundException(shiftId)
+                );
+
+        shift.updateStatus(request.status());
+
+        return shiftRepository.saveAndFlush(shift);
+    }
+
     public void delete(UUID shiftId) {
         Shift shift = shiftRepository.findById(shiftId)
                 .orElseThrow(() ->

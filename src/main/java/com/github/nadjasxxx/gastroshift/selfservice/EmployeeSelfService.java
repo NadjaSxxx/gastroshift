@@ -4,6 +4,7 @@ import com.github.nadjasxxx.gastroshift.employee.Employee;
 import com.github.nadjasxxx.gastroshift.employee.EmployeeRepository;
 import com.github.nadjasxxx.gastroshift.shift.Shift;
 import com.github.nadjasxxx.gastroshift.shift.ShiftRepository;
+import com.github.nadjasxxx.gastroshift.shift.ShiftStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,8 +31,9 @@ public class EmployeeSelfService {
                 );
 
         return shiftRepository
-                .findByEmployee_IdOrderByStartTimeAsc(
-                        employee.getId()
+                .findByEmployee_IdAndStatusOrderByStartTimeAsc(
+                        employee.getId(),
+                        ShiftStatus.PUBLISHED
                 );
     }
 }

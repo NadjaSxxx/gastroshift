@@ -29,12 +29,13 @@ public class EmployeeSelfServiceController {
     }
 
     @Operation(
-            summary = "List my shifts",
+            summary = "List my published shifts",
             description = """
-                Returns the shifts assigned to the authenticated employee.
-                The employee is identified through the subject claim of the
-                access token, so no employee ID is supplied by the caller.
-                Requires the EMPLOYEE role and a linked employee identity.
+                Returns only published shifts assigned to the authenticated
+                employee. Draft shifts are not visible. The employee is
+                identified through the subject claim of the access token, so
+                no employee ID is supplied by the caller. Requires the
+                EMPLOYEE role and a linked employee identity.
                 """
     )
     @GetMapping("/shifts")

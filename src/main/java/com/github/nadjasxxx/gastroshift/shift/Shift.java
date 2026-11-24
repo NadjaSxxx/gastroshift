@@ -4,10 +4,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
-
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import com.github.nadjasxxx.gastroshift.employee.Employee;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -32,6 +32,10 @@ public class Shift {
     @Column(length = 500)
     private String notes;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ShiftStatus status;
+
     @ManyToOne
     @JoinColumn(name = "employee_id")
     private Employee employee;
@@ -46,6 +50,7 @@ public class Shift {
         this.endTime = endTime;
         this.position = position;
         this.notes = notes;
+        this.status = ShiftStatus.DRAFT;
     }
 
     public UUID getId() {
@@ -68,6 +73,8 @@ public class Shift {
         return notes;
     }
 
+    public ShiftStatus getStatus() {return status;}
+
     public Employee getEmployee() { return employee; }
 
     public void assignEmployee(Employee employee) {
@@ -76,6 +83,7 @@ public class Shift {
 
     public void unassignEmployee() {
         this.employee = null;
+        this.status = ShiftStatus.DRAFT;
     }
 
     public void updateDetails(
@@ -88,5 +96,14 @@ public class Shift {
         this.endTime = endTime;
         this.position = position;
         this.notes = notes;
+    }
+
+    public void updateStatus(ShiftStatus newStatus) {
+        if (newStatus == ShiftStatus.PUBLISHED
+                && employee == null) {
+            throw new UnassignedShiftCannotBePublishedException(id);
+        }
+
+        this.status = newStatus;
     }
 }
