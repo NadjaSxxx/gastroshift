@@ -12,6 +12,7 @@ import com.github.nadjasxxx.gastroshift.employee.EmployeeNotFoundException;
 import com.github.nadjasxxx.gastroshift.employee.InactiveEmployeeException;
 import com.github.nadjasxxx.gastroshift.employee.DuplicateEmployeeIdentityException;
 import com.github.nadjasxxx.gastroshift.selfservice.EmployeeIdentityNotLinkedException;
+import com.github.nadjasxxx.gastroshift.shift.UnassignedShiftCannotBePublishedException;
 
 import java.time.Instant;
 
@@ -207,6 +208,21 @@ public class GlobalExceptionHandler {
         return new ApiError(
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                Instant.now()
+        );
+    }
+
+    @ExceptionHandler(
+            UnassignedShiftCannotBePublishedException.class
+    )
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handleUnassignedShiftCannotBePublished(
+            UnassignedShiftCannotBePublishedException exception
+    ) {
+        return new ApiError(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
                 exception.getMessage(),
                 Instant.now()
         );

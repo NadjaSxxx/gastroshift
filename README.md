@@ -22,11 +22,14 @@ The project is currently under active development as a portfolio and learning pr
 * Create, list, retrieve, update, and delete shifts
 * Filter shifts by date and time range
 * Validate that the end time is after the start time
+* Create new shifts in `DRAFT` status
+* Publish assigned shifts and return published shifts to draft
+* Prevent unassigned shifts from being published
 * Assign one employee to a shift
-* Remove an employee assignment
+* Remove an employee assignment and automatically return the shift to `DRAFT`
 * Prevent overlapping assignments for the same employee
 * Prevent inactive employees from receiving new assignments
-* Allow authenticated employees to retrieve their own assigned shifts
+* Allow authenticated employees to retrieve only their own published shifts
 * Prevent assignments and updates during employee unavailability
 
 ### Technical Features
@@ -264,9 +267,9 @@ The Swagger client uses Authorization Code Flow with PKCE and does not require a
 
 The demo identities are configured as follows:
 
-| Username | Realm role | Password source | Keycloak subject |
-|---|---|---|---|
-| `manager-demo` | `MANAGER` | `KEYCLOAK_MANAGER_DEMO_PASSWORD` | `10000000-0000-0000-0000-000000000001` |
+| Username        | Realm role | Password source                   | Keycloak subject                       |
+|-----------------|------------|-----------------------------------|----------------------------------------|
+| `manager-demo`  | `MANAGER`  | `KEYCLOAK_MANAGER_DEMO_PASSWORD`  | `10000000-0000-0000-0000-000000000001` |
 | `employee-demo` | `EMPLOYEE` | `KEYCLOAK_EMPLOYEE_DEMO_PASSWORD` | `10000000-0000-0000-0000-000000000002` |
 
 The actual passwords are read from the local `.env` file during the initial realm import. Passwords and client secrets are not stored in the committed realm file.
@@ -523,16 +526,17 @@ The test database is separate from the local development database.
 
 ### Shifts
 
-| Method   | Endpoint                                      | Description                          |
-|----------|-----------------------------------------------|--------------------------------------|
-| `GET`    | `/api/shifts`                                 | List all shifts                      |
-| `GET`    | `/api/shifts?from={from}&to={to}`             | List shifts overlapping a time range |
-| `POST`   | `/api/shifts`                                 | Create a shift                       |
-| `PUT`    | `/api/shifts/{shiftId}/employee/{employeeId}` | Assign an employee to a shift        |
-| `DELETE` | `/api/shifts/{shiftId}/employee`              | Remove the employee assignment       |
-| `PUT`    | `/api/shifts/{shiftId}`                       | Update an existing shift             |
-| `DELETE` | `/api/shifts/{shiftId}`                       | Delete an existing shift             |
-| `GET`    | `/api/shifts/{shiftId}`                       | Get one shift                        |
+| Method   | Endpoint                                      | Description                              |
+|----------|-----------------------------------------------|------------------------------------------|
+| `GET`    | `/api/shifts`                                 | List all draft and published shifts      |
+| `GET`    | `/api/shifts?from={from}&to={to}`             | List shifts overlapping a time range     |
+| `POST`   | `/api/shifts`                                 | Create a shift in draft status           |
+| `GET`    | `/api/shifts/{shiftId}`                       | Get one shift                            |
+| `PUT`    | `/api/shifts/{shiftId}`                       | Update an existing shift                 |
+| `DELETE` | `/api/shifts/{shiftId}`                       | Delete an existing shift                 |
+| `PATCH`  | `/api/shifts/{shiftId}/status`                | Change the publication status of a shift |
+| `PUT`    | `/api/shifts/{shiftId}/employee/{employeeId}` | Assign an employee to a shift            |
+| `DELETE` | `/api/shifts/{shiftId}/employee`              | Remove the employee assignment           |
 
 ### Employee Self-Service
 
@@ -658,13 +662,39 @@ The assignment is rejected when:
 * the employee is inactive,
 * the employee already has an overlapping shift.
 
+### Change Shift Publication Status
+
+```http
+PATCH /api/shifts/{shiftId}/status
+Content-Type: application/json
+```
+
+```JSON
+{
+  "status": "PUBLISHED"
+}
+```
+Supported values are DRAFT and PUBLISHED.
+
+A shift can only be published after an employee has been assigned. Attempting to publish an unassigned shift returns 409 Conflict.
+
+Returning a published shift to draft uses the same endpoint:
+
+```JSON
+{
+  "status": "DRAFT"
+}
+```
+
 ### Remove an Assignment
 
 ```http
 DELETE /api/shifts/{shiftId}/employee
 ```
 
-A successful request returns `204 No Content`. Repeating the request for an already unassigned shift also succeeds.
+A successful request returns 204 No Content.
+
+Removing an employee assignment automatically returns the shift to DRAFT status. Repeating the request for an already unassigned shift also succeeds.
 
 ### Link an Employee Identity
 
@@ -687,7 +717,9 @@ The identity subject must be unique. Repeating the same link for the same employ
 GET /api/me/shifts
 ```
 
-The employee is identified through the JWT `sub` claim. No employee ID is accepted from the request.
+The employee is identified through the JWT sub claim. No employee ID is accepted from the request.
+
+Only published shifts assigned to the authenticated employee are returned. Draft shifts and shifts assigned to other employees are not visible through this endpoint.
 
 ### Update a Shift
 
@@ -798,6 +830,8 @@ Current migrations:
 | `V4`    | Add employee assignments to shifts              |
 | `V5`    | Add unique identity subjects to employees       |
 | `V6`    | Create the employee unavailability table        |
+| `V7`    | Add publication status to shifts                |
+
 
 Existing migrations must not be modified after they have been applied. Schema changes should be introduced through new migration files.
 
@@ -845,23 +879,38 @@ The code is organized by business domain:
 
 ## Current Status
 
-GastroShift currently provides a tested REST backend for managing employees, shifts, employee assignments and employee unavailability.
+GastroShift currently provides a tested REST backend for managing employees, shifts, employee assignments, publication workflows, and employee unavailability.
 
 The application currently supports:
 
 * PostgreSQL persistence with Flyway database migrations
-* employee creation, updates, status management and identity linking
-* shift creation, updates, deletion and employee assignment
+* employee creation, updates, status management, and identity linking
+* shift creation, updates, deletion, and employee assignment
+* draft and published shift states
+* publication of assigned shifts
+* automatic return to draft when an employee assignment is removed
+* prevention of publishing unassigned shifts
 * prevention of overlapping shifts
 * prevention of assignments during employee unavailability
+* manager access to both draft and published shifts
 * manager access to employee unavailability with time-range filtering
-* employee self-service access to assigned shifts
+* employee self-service access to their own published shifts
 * employee self-service management of unavailability periods
 * Keycloak authentication with `MANAGER` and `EMPLOYEE` realm roles
 * OpenAPI documentation and authenticated Swagger UI
 * reproducible local Keycloak configuration with automatically imported demo users
 * integration tests with MockMvc and Testcontainers
 * automated builds and tests with GitHub Actions
+
+GastroShift does not yet include an end-user frontend or a public deployment.
+
+Planned improvements include:
+
+* recurring weekly availability
+* weekly schedule views
+* automatic creation of optional demo business data
+* a web frontend for managers and employees
+* deployment and production configuration
 
 GastroShift does not yet include an end-user frontend or a public deployment.
 

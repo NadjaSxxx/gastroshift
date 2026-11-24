@@ -51,5 +51,8 @@ public interface ShiftRepository extends JpaRepository<Shift, UUID> {
             @Param("endTime") LocalDateTime endTime
     );
 
-    List<Shift> findByEmployee_IdOrderByStartTimeAsc(UUID employeeID);
+    List<Shift> findByEmployee_IdAndStatusOrderByStartTimeAsc(
+            UUID employeeId,
+            ShiftStatus status
+    );
 }

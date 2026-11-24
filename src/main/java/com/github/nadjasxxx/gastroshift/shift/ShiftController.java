@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-
+import org.springframework.web.bind.annotation.PatchMapping;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
@@ -39,9 +39,10 @@ public class ShiftController {
     @Operation(
             summary = "List shifts",
             description = """
-                Returns all shifts or only shifts overlapping the requested
-                time range. The from and to parameters must either both be
-                provided or both be omitted. Requires the MANAGER role.
+                Returns all draft and published shifts or only shifts
+                overlapping the requested time range. The from and to
+                parameters must either both be provided or both be omitted.
+                Requires the MANAGER role.
                 """
     )
     @GetMapping
@@ -83,8 +84,8 @@ public class ShiftController {
     @Operation(
             summary = "Create a shift",
             description = """
-                Creates an unassigned shift. The end time must be after the
-                start time. Requires the MANAGER role.
+                Creates an unassigned shift with the DRAFT status. The end
+                time must be after the start time. Requires the MANAGER role.
                 """
     )
     @PostMapping
@@ -118,14 +119,34 @@ public class ShiftController {
     @Operation(
             summary = "Remove an employee assignment",
             description = """
-                Removes the current employee assignment from a shift.
-                Requires the MANAGER role.
+                Removes the current employee assignment from a shift. The
+                shift is automatically returned to DRAFT so that an
+                unassigned shift cannot remain published. Requires the
+                MANAGER role.
                 """
     )
     @DeleteMapping("/{shiftId}/employee")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void unassignEmployee(@PathVariable UUID shiftId) {
         shiftService.unassignEmployee(shiftId);
+    }
+
+    @Operation(
+            summary = "Change a shift's publication status",
+            description = """
+                Changes a shift between DRAFT and PUBLISHED. A shift must
+                have an assigned employee before it can be published.
+                Requires the MANAGER role.
+                """
+    )
+    @PatchMapping("/{shiftId}/status")
+    public ShiftResponse updateStatus(
+            @PathVariable UUID shiftId,
+            @Valid @RequestBody UpdateShiftStatusRequest request
+    ) {
+        return ShiftResponse.from(
+                shiftService.updateStatus(shiftId, request)
+        );
     }
 
     @Operation(

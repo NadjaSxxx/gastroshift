@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -92,25 +92,62 @@ class ShiftControllerTest {
                 .andExpect(jsonPath("$.startTime").value("2026-08-15T17:00:00"))
                 .andExpect(jsonPath("$.endTime").value("2026-08-15T23:30:00"))
                 .andExpect(jsonPath("$.position").value("Service"))
-                .andExpect(jsonPath("$.notes").value("Terrace"));
+                .andExpect(jsonPath("$.notes").value("Terrace"))
+                .andExpect(jsonPath("$.status").value("DRAFT"));
     }
 
     @Test
-    void shouldReturnAllShifts() throws Exception {
-        shiftRepository.save(new Shift(
-                java.util.UUID.fromString("33333333-3333-3333-3333-333333333333"),
-                java.time.LocalDateTime.parse("2026-08-16T10:00:00"),
-                java.time.LocalDateTime.parse("2026-08-16T16:00:00"),
+    void shouldReturnDraftAndPublishedShifts() throws Exception {
+        Employee employee = employeeRepository.saveAndFlush(
+                new Employee(
+                        UUID.fromString(
+                                "11111111-1111-1111-1111-111111111111"
+                        ),
+                        "Mira",
+                        "Beispiel",
+                        "mira.beispiel@example.com",
+                        true
+                )
+        );
+
+        Shift draftShift = new Shift(
+                UUID.fromString(
+                        "33333333-3333-3333-3333-333333333333"
+                ),
+                LocalDateTime.parse("2026-08-16T10:00:00"),
+                LocalDateTime.parse("2026-08-16T16:00:00"),
                 "Kitchen",
                 null
-        ));
+        );
+
+        Shift publishedShift = new Shift(
+                UUID.fromString(
+                        "44444444-4444-4444-4444-444444444444"
+                ),
+                LocalDateTime.parse("2026-08-17T10:00:00"),
+                LocalDateTime.parse("2026-08-17T16:00:00"),
+                "Service",
+                "Terrace"
+        );
+        publishedShift.assignEmployee(employee);
+        publishedShift.updateStatus(ShiftStatus.PUBLISHED);
+
+        shiftRepository.saveAllAndFlush(
+                List.of(draftShift, publishedShift)
+        );
 
         mockMvc.perform(get("/api/shifts"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].position").value("Kitchen"))
-                .andExpect(jsonPath("$[0].notes").doesNotExist());
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[*].status").value(
+                        containsInAnyOrder("DRAFT", "PUBLISHED")
+                ))
+                .andExpect(jsonPath("$[*].position").value(
+                        containsInAnyOrder("Kitchen", "Service")
+                ));
     }
 
     @Test
@@ -382,7 +419,7 @@ class ShiftControllerTest {
     }
 
     @Test
-    void shouldUnassignEmployeeFromShift() throws Exception {
+    void shouldUnassignEmployeeAndReturnPublishedShiftToDraft() throws Exception {
         UUID employeeId =
                 UUID.fromString("11111111-1111-1111-1111-111111111111");
         UUID shiftId =
@@ -404,6 +441,7 @@ class ShiftControllerTest {
                 null
         );
         shift.assignEmployee(employee);
+        shift.updateStatus(ShiftStatus.PUBLISHED);
         shiftRepository.saveAndFlush(shift);
 
         mockMvc.perform(delete(
@@ -417,6 +455,10 @@ class ShiftControllerTest {
                 .orElseThrow();
 
         assertNull(persistedShift.getEmployee());
+        assertEquals(
+                ShiftStatus.DRAFT,
+                persistedShift.getStatus()
+        );
     }
 
     @Test
@@ -443,6 +485,10 @@ class ShiftControllerTest {
                 .orElseThrow();
 
         assertNull(persistedShift.getEmployee());
+        assertEquals(
+                ShiftStatus.DRAFT,
+                persistedShift.getStatus()
+        );
     }
 
     @Test
@@ -1162,5 +1208,238 @@ class ShiftControllerTest {
                         "Employee is unavailable during shift: "
                                 + employeeId
                 ));
+    }
+
+    @Test
+    void shouldPublishAssignedShift() throws Exception {
+        UUID employeeId =
+                UUID.fromString(
+                        "11111111-1111-1111-1111-111111111111"
+                );
+        UUID shiftId =
+                UUID.fromString(
+                        "33333333-3333-3333-3333-333333333333"
+                );
+
+        Employee employee = employeeRepository.save(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        Shift shift = new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-12-01T10:00:00"),
+                LocalDateTime.parse("2026-12-01T16:00:00"),
+                "Service",
+                null
+        );
+        shift.assignEmployee(employee);
+        shiftRepository.saveAndFlush(shift);
+
+        mockMvc.perform(patch(
+                        "/api/shifts/{shiftId}/status",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "status": "PUBLISHED"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(shiftId.toString()))
+                .andExpect(jsonPath("$.status")
+                        .value("PUBLISHED"));
+
+        Shift publishedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertEquals(
+                ShiftStatus.PUBLISHED,
+                publishedShift.getStatus()
+        );
+    }
+
+    @Test
+    void shouldRejectPublishingUnassignedShift() throws Exception {
+        UUID shiftId =
+                UUID.fromString(
+                        "33333333-3333-3333-3333-333333333333"
+                );
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-12-01T10:00:00"),
+                LocalDateTime.parse("2026-12-01T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/shifts/{shiftId}/status",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "status": "PUBLISHED"
+                            }
+                            """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error")
+                        .value("Conflict"))
+                .andExpect(jsonPath("$.message").value(
+                        "Cannot publish unassigned shift: "
+                                + shiftId
+                ));
+
+        Shift unchangedShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertEquals(
+                ShiftStatus.DRAFT,
+                unchangedShift.getStatus()
+        );
+    }
+
+    @Test
+    void shouldReturnPublishedShiftToDraft() throws Exception {
+        UUID employeeId =
+                UUID.fromString(
+                        "11111111-1111-1111-1111-111111111111"
+                );
+        UUID shiftId =
+                UUID.fromString(
+                        "33333333-3333-3333-3333-333333333333"
+                );
+
+        Employee employee = employeeRepository.save(new Employee(
+                employeeId,
+                "Mira",
+                "Beispiel",
+                "mira.beispiel@example.com",
+                true
+        ));
+
+        Shift shift = new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-12-01T10:00:00"),
+                LocalDateTime.parse("2026-12-01T16:00:00"),
+                "Service",
+                null
+        );
+        shift.assignEmployee(employee);
+        shift.updateStatus(ShiftStatus.PUBLISHED);
+        shiftRepository.saveAndFlush(shift);
+
+        mockMvc.perform(patch(
+                        "/api/shifts/{shiftId}/status",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "status": "DRAFT"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status")
+                        .value("DRAFT"));
+
+        Shift draftShift = shiftRepository.findById(shiftId)
+                .orElseThrow();
+
+        assertEquals(
+                ShiftStatus.DRAFT,
+                draftShift.getStatus()
+        );
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingStatusOfUnknownShift()
+            throws Exception {
+        UUID unknownShiftId =
+                UUID.fromString(
+                        "99999999-9999-9999-9999-999999999999"
+                );
+
+        mockMvc.perform(patch(
+                        "/api/shifts/{shiftId}/status",
+                        unknownShiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "status": "PUBLISHED"
+                            }
+                            """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error")
+                        .value("Not Found"))
+                .andExpect(jsonPath("$.message").value(
+                        "Shift not found: " + unknownShiftId
+                ));
+    }
+
+    @Test
+    void shouldRejectStatusUpdateWhenStatusIsMissing()
+            throws Exception {
+        UUID shiftId =
+                UUID.fromString(
+                        "33333333-3333-3333-3333-333333333333"
+                );
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-12-01T10:00:00"),
+                LocalDateTime.parse("2026-12-01T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/shifts/{shiftId}/status",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                            }
+                            """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldRejectUnknownShiftStatus() throws Exception {
+        UUID shiftId =
+                UUID.fromString(
+                        "33333333-3333-3333-3333-333333333333"
+                );
+
+        shiftRepository.saveAndFlush(new Shift(
+                shiftId,
+                LocalDateTime.parse("2026-12-01T10:00:00"),
+                LocalDateTime.parse("2026-12-01T16:00:00"),
+                "Service",
+                null
+        ));
+
+        mockMvc.perform(patch(
+                        "/api/shifts/{shiftId}/status",
+                        shiftId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "status": "READY"
+                            }
+                            """))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -15,7 +15,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
+import com.github.nadjasxxx.gastroshift.shift.ShiftStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -83,6 +83,7 @@ class EmployeeSelfServiceControllerTest {
                 null
         );
         annaLaterShift.assignEmployee(anna);
+        annaLaterShift.updateStatus(ShiftStatus.PUBLISHED);
 
         Shift annaEarlierShift = new Shift(
                 UUID.fromString(
@@ -94,6 +95,7 @@ class EmployeeSelfServiceControllerTest {
                 null
         );
         annaEarlierShift.assignEmployee(anna);
+        annaEarlierShift.updateStatus(ShiftStatus.PUBLISHED);
 
         Shift rainerShift = new Shift(
                 UUID.fromString(
@@ -105,18 +107,31 @@ class EmployeeSelfServiceControllerTest {
                 null
         );
         rainerShift.assignEmployee(rainer);
+        rainerShift.updateStatus(ShiftStatus.PUBLISHED);
+
+        Shift annaDraftShift = new Shift(
+                UUID.fromString(
+                        "66666666-6666-6666-6666-666666666666"
+                ),
+                LocalDateTime.parse("2026-10-03T10:00:00"),
+                LocalDateTime.parse("2026-10-03T16:00:00"),
+                "Preparation",
+                null
+        );
+        annaDraftShift.assignEmployee(anna);
 
         shiftRepository.saveAllAndFlush(
                 List.of(
                         annaLaterShift,
                         annaEarlierShift,
-                        rainerShift
+                        rainerShift,
+                        annaDraftShift
                 )
         );
     }
 
     @Test
-    void shouldReturnOnlyOwnShiftsInChronologicalOrder()
+    void shouldReturnOnlyOwnPublishedShiftsInChronologicalOrder()
             throws Exception {
         mockMvc.perform(get("/api/me/shifts")
                         .with(jwt()
