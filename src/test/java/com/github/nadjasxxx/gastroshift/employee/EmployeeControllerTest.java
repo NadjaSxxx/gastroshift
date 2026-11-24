@@ -24,6 +24,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailability;
 import com.github.nadjasxxx.gastroshift.unavailability.EmployeeUnavailabilityRepository;
+import com.github.nadjasxxx.gastroshift.shift.ShiftRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,9 +48,13 @@ class EmployeeControllerTest {
     @Autowired
     private EmployeeUnavailabilityRepository unavailabilityRepository;
 
+    @Autowired
+    private ShiftRepository shiftRepository;
+
     @BeforeEach
     void setUp() {
         unavailabilityRepository.deleteAll();
+        shiftRepository.deleteAll();
         employeeRepository.deleteAll();
 
         employeeRepository.saveAll(List.of(
